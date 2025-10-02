@@ -43,16 +43,100 @@ describe('LeafNode', () => {
   });
 
   describe('insert', () => {
-    it.todo('should insert first key-value pair');
-    it.todo('should insert multiple key-value pairs in sorted order');
-    it.todo('should maintain keys and values in sync');
-    it.todo('should insert at beginning when key is smallest');
-    it.todo('should insert at end when key is largest');
-    it.todo('should insert in middle for intermediate values');
-    it.todo('should update existing value if key already exists');
-    it.todo('should return true for new key insertion');
-    it.todo('should return false when updating existing key');
-    it.todo('should use binary search for insertion point');
+    it('should insert first key-value pair', () => {
+      const result = leaf.insert(10, 'ten');
+
+      expect(result).toBe(true);
+      expect(leaf.getKeyCount()).toBe(1);
+      expect(leaf.getKeys()).toEqual([10]);
+      expect(leaf.getValues()).toEqual(['ten']);
+    });
+
+    it('should insert multiple key-value pairs in sorted order', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      expect(leaf.getKeyCount()).toBe(3);
+      expect(leaf.getKeys()).toEqual([10, 20, 30]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'thirty']);
+    });
+
+    it('should maintain keys and values in sync', () => {
+      leaf.insert(50, 'fifty');
+      leaf.insert(10, 'ten');
+      leaf.insert(30, 'thirty');
+
+      const keys = leaf.getKeys();
+      const values = leaf.getValues();
+
+      expect(keys.length).toBe(values.length);
+      expect(keys).toEqual([10, 30, 50]);
+      expect(values).toEqual(['ten', 'thirty', 'fifty']);
+    });
+
+    it('should insert at beginning when key is smallest', () => {
+      leaf.insert(30, 'thirty');
+      leaf.insert(20, 'twenty');
+      leaf.insert(10, 'ten');
+
+      expect(leaf.getKeys()).toEqual([10, 20, 30]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'thirty']);
+    });
+
+    it('should insert at end when key is largest', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      expect(leaf.getKeys()).toEqual([10, 20, 30]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'thirty']);
+    });
+
+    it('should insert in middle for intermediate values', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(30, 'thirty');
+      leaf.insert(20, 'twenty');
+
+      expect(leaf.getKeys()).toEqual([10, 20, 30]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'thirty']);
+    });
+
+    it('should update existing value if key already exists', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const result = leaf.insert(10, 'TEN');
+
+      expect(result).toBe(false);
+      expect(leaf.getKeyCount()).toBe(2);
+      expect(leaf.getKeys()).toEqual([10, 20]);
+      expect(leaf.getValues()).toEqual(['TEN', 'twenty']);
+    });
+
+    it('should return true for new key insertion', () => {
+      const result1 = leaf.insert(10, 'ten');
+      const result2 = leaf.insert(20, 'twenty');
+
+      expect(result1).toBe(true);
+      expect(result2).toBe(true);
+    });
+
+    it('should return false when updating existing key', () => {
+      leaf.insert(10, 'ten');
+      const result = leaf.insert(10, 'updated');
+
+      expect(result).toBe(false);
+      expect(leaf.getValue(0)).toBe('updated');
+    });
+
+    it('should maintain sorted order with random insertions', () => {
+      const keys = [50, 10, 30, 40, 20];
+      keys.forEach((key) => leaf.insert(key, `value${key}`));
+
+      expect(leaf.getKeys()).toEqual([10, 20, 30, 40, 50]);
+      expect(leaf.getValues()).toEqual(['value10', 'value20', 'value30', 'value40', 'value50']);
+    });
   });
 
   describe('search', () => {

@@ -81,8 +81,37 @@ export class LeafNode<K, V> extends Node<K, V> {
    * @returns true if a new key was inserted, false if existing key was updated
    */
   insert(key: K, value: V): boolean {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let i = 0;
+    let exist = false;
+    for(; i < this.keys.length; i++) {
+      if ( this.keys[i] > key ) {
+        break;
+      }
+
+      if ( this.keys[i] == key ) {
+        exist = true;
+        break;
+      }
+    }
+
+    if ( exist ) {
+      this.values[i] = value;
+      return false;
+    }
+
+    this.keys = [
+        ...this.keys.slice(0, i),
+        key,
+        ...this.keys.slice(i),
+    ];
+
+    this.values = [
+        ...this.values.slice(0, i),
+        value,
+        ...this.values.slice(i),
+    ];
+
+    return true;
   }
 
   /**
