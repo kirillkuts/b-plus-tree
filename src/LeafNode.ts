@@ -120,8 +120,9 @@ export class LeafNode<K, V> extends Node<K, V> {
    * @returns The value if found, undefined otherwise
    */
   search(key: K): V | undefined {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    const index = this.keys.findIndex(k => k === key);
+
+    return index > -1 ? this.values[index] : undefined;
   }
 
   /**

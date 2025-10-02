@@ -140,12 +140,68 @@ describe('LeafNode', () => {
   });
 
   describe('search', () => {
-    it.todo('should return undefined for non-existing key in empty leaf');
-    it.todo('should find value for existing key');
-    it.todo('should return undefined for non-existing key');
-    it.todo('should handle single key-value pair');
-    it.todo('should handle multiple key-value pairs');
-    it.todo('should use binary search for efficiency');
+    it('should return undefined for non-existing key in empty leaf', () => {
+      const result = leaf.search(10);
+      expect(result).toBeUndefined();
+    });
+
+    it('should find value for existing key', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      expect(leaf.search(10)).toBe('ten');
+      expect(leaf.search(20)).toBe('twenty');
+      expect(leaf.search(30)).toBe('thirty');
+    });
+
+    it('should return undefined for non-existing key', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(30, 'thirty');
+
+      expect(leaf.search(20)).toBeUndefined();
+      expect(leaf.search(5)).toBeUndefined();
+      expect(leaf.search(40)).toBeUndefined();
+    });
+
+    it('should handle single key-value pair', () => {
+      leaf.insert(42, 'answer');
+
+      expect(leaf.search(42)).toBe('answer');
+      expect(leaf.search(41)).toBeUndefined();
+      expect(leaf.search(43)).toBeUndefined();
+    });
+
+    it('should handle multiple key-value pairs', () => {
+      const entries = [
+        [10, 'ten'],
+        [20, 'twenty'],
+        [30, 'thirty'],
+        [40, 'forty'],
+        [50, 'fifty'],
+      ] as Array<[number, string]>;
+
+      entries.forEach(([key, value]) => leaf.insert(key, value));
+
+      // Search for all existing keys
+      entries.forEach(([key, value]) => {
+        expect(leaf.search(key)).toBe(value);
+      });
+
+      // Search for non-existing keys
+      expect(leaf.search(5)).toBeUndefined();
+      expect(leaf.search(15)).toBeUndefined();
+      expect(leaf.search(25)).toBeUndefined();
+      expect(leaf.search(60)).toBeUndefined();
+    });
+
+    it('should find updated values', () => {
+      leaf.insert(10, 'original');
+      expect(leaf.search(10)).toBe('original');
+
+      leaf.insert(10, 'updated');
+      expect(leaf.search(10)).toBe('updated');
+    });
   });
 
   describe('delete', () => {
