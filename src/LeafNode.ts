@@ -74,10 +74,6 @@ export class LeafNode<K, V> extends Node<K, V> {
 
   /**
    * Inserts a key-value pair into this leaf node
-   * TODO: Implement insertion maintaining sorted order
-   * - Find correct position for key
-   * - Insert key and value at that position
-   * - Update existing value if key already exists
    * @returns true if a new key was inserted, false if existing key was updated
    */
   insert(key: K, value: V): boolean {
@@ -146,8 +142,29 @@ export class LeafNode<K, V> extends Node<K, V> {
    * @returns Object with the smallest key in the new node and the new node
    */
   split(): { splitKey: K; rightNode: LeafNode<K, V> } {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    const newLeafNode = new LeafNode<K, V>(this.order);
+
+    const keep = Math.ceil(this.values.length / 2);
+
+    for(let i = keep; i < this.keys.length; i++) {
+      newLeafNode.insert(this.keys[i], this.values[i]);
+    }
+
+    this.keys = this.keys.slice(0, keep);
+    this.values = this.values.slice(0, keep);
+
+    newLeafNode.next = this.next;
+    newLeafNode.prev = this;
+    this.next = newLeafNode;
+
+    if ( newLeafNode.next ) {
+      newLeafNode.next.prev = newLeafNode;
+    }
+
+    return {
+      splitKey: newLeafNode.keys[0],
+      rightNode: newLeafNode,
+    }
   }
 
   /**
