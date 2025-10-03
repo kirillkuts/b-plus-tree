@@ -119,8 +119,25 @@ export class InternalNode<K, V> extends Node<K, V> {
    * @returns Object with the middle key and the new right node
    */
   split(): { middleKey: K; rightNode: InternalNode<K, V> } {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    const splitKeyIndex = Math.floor(this.keys.length / 2);
+    const splitKey = this.keys[splitKeyIndex];
+
+    const newNode = new InternalNode<K, V>(this.order);
+
+    newNode['keys'] = this.keys.slice(splitKeyIndex + 1)
+    newNode['children'] = this.children.slice(splitKeyIndex + 1)
+    newNode['children'].forEach((child: Node<K, V>) => {
+      child.setParent(newNode);
+    })
+    newNode.setParent(this.getParent());
+
+    this.keys = this.keys.slice(0, splitKeyIndex);
+    this.children = this.children.slice(0, splitKeyIndex + 1);
+
+    return {
+      middleKey: splitKey,
+      rightNode: newNode,
+    };
   }
 
   /**

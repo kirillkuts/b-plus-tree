@@ -447,15 +447,300 @@ describe('InternalNode', () => {
   });
 
   describe('split', () => {
-    it.todo('should create new internal node');
-    it.todo('should split keys evenly between nodes');
-    it.todo('should split children correctly (n keys means n+1 children)');
-    it.todo('should return middle key to push up to parent');
-    it.todo('should return new right node');
-    it.todo('should update parent pointers of moved children');
-    it.todo('should handle odd number of keys');
-    it.todo('should handle even number of keys');
-    it.todo('should maintain B+ tree invariants after split');
+    it('should create new internal node', () => {
+      // Setup: fill internal node with order keys (4 keys for order 4)
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Keys: [10, 20, 30, 40], Children: 5
+
+      const result = node.split();
+
+      expect(result.rightNode).toBeInstanceOf(InternalNode);
+      expect(result.rightNode.isLeaf()).toBe(false);
+    });
+
+    it('should split keys evenly between nodes', () => {
+      // Order 4: insert 4 keys (5 children)
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Keys: [10, 20, 30, 40]
+      // For 4 keys: middle at index 2, so keys split as:
+      // Left: [10, 20], Middle: 30 (pushed up), Right: [40]
+
+      const result = node.split();
+
+      expect(node.getKeyCount()).toBe(2); // [10, 20]
+      expect(result.rightNode.getKeyCount()).toBe(1); // [40]
+      expect(result.middleKey).toBe(30);
+    });
+
+    it('should split children correctly (n keys means n+1 children)', () => {
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Children: [c0, c1, c2, c3, c4] (5 children for 4 keys)
+      // Split at index 2:
+      // Left gets: [c0, c1, c2] (3 children for 2 keys)
+      // Right gets: [c3, c4] (2 children for 1 key)
+
+      const result = node.split();
+
+      expect(node.getChildCount()).toBe(3);
+      expect(result.rightNode.getChildCount()).toBe(2);
+
+      // Verify invariant: childCount = keyCount + 1
+      expect(node.getChildCount()).toBe(node.getKeyCount() + 1);
+      expect(result.rightNode.getChildCount()).toBe(result.rightNode.getKeyCount() + 1);
+
+      // Verify specific children
+      expect(node.getChild(0)).toBe(children[0]);
+      expect(node.getChild(1)).toBe(children[1]);
+      expect(node.getChild(2)).toBe(children[2]);
+
+      expect(result.rightNode.getChild(0)).toBe(children[3]);
+      expect(result.rightNode.getChild(1)).toBe(children[4]);
+    });
+
+    it('should return middle key to push up to parent', () => {
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Keys: [10, 20, 30, 40]
+      // Middle index: floor(4 / 2) = 2
+      // Middle key: 30
+
+      const result = node.split();
+
+      expect(result.middleKey).toBe(30);
+
+      // IMPORTANT: Middle key should be REMOVED from both nodes (pushed up)
+      expect(node.getKeys()).toEqual([10, 20]);
+      expect(result.rightNode.getKeys()).toEqual([40]);
+      expect(node.getKeys()).not.toContain(30);
+      expect(result.rightNode.getKeys()).not.toContain(30);
+    });
+
+    it('should return new right node', () => {
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      const result = node.split();
+
+      expect(result.rightNode).toBeDefined();
+      expect(result.rightNode.getKeyCount()).toBeGreaterThan(0);
+      expect(result.rightNode.getChildCount()).toBeGreaterThan(0);
+    });
+
+    it('should update parent pointers of moved children', () => {
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      children[0].setParent(node as any);
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Before split, all children point to original node
+      children.forEach(child => {
+        expect(child.getParent()).toBe(node);
+      });
+
+      const result = node.split();
+
+      // After split:
+      // Children [0, 1, 2] stay with original node
+      expect(children[0].getParent()).toBe(node);
+      expect(children[1].getParent()).toBe(node);
+      expect(children[2].getParent()).toBe(node);
+
+      // Children [3, 4] move to right node
+      expect(children[3].getParent()).toBe(result.rightNode);
+      expect(children[4].getParent()).toBe(result.rightNode);
+    });
+
+    it('should handle odd number of keys (5 keys)', () => {
+      // Order 5 internal node with 5 keys (6 children)
+      const nodeOrder5 = new InternalNode<number, string>(5);
+      const children = Array.from({ length: 6 }, () => new LeafNode<number, string>(5));
+
+      nodeOrder5['children'] = [children[0]];
+      nodeOrder5.insertKeyAndChild(10, children[1]);
+      nodeOrder5.insertKeyAndChild(20, children[2]);
+      nodeOrder5.insertKeyAndChild(30, children[3]);
+      nodeOrder5.insertKeyAndChild(40, children[4]);
+      nodeOrder5.insertKeyAndChild(50, children[5]);
+
+      // Keys: [10, 20, 30, 40, 50] (5 keys)
+      // Middle index: floor(5 / 2) = 2
+      // Left: [10, 20], Middle: 30, Right: [40, 50]
+
+      const result = nodeOrder5.split();
+
+      expect(nodeOrder5.getKeyCount()).toBe(2);
+      expect(result.rightNode.getKeyCount()).toBe(2);
+      expect(result.middleKey).toBe(30);
+
+      expect(nodeOrder5.getKeys()).toEqual([10, 20]);
+      expect(result.rightNode.getKeys()).toEqual([40, 50]);
+
+      // Children: [c0, c1, c2] and [c3, c4, c5]
+      expect(nodeOrder5.getChildCount()).toBe(3);
+      expect(result.rightNode.getChildCount()).toBe(3);
+    });
+
+    it('should handle even number of keys (4 keys)', () => {
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Keys: [10, 20, 30, 40] (4 keys)
+      // Middle index: floor(4 / 2) = 2
+      // Left: [10, 20], Middle: 30, Right: [40]
+
+      const result = node.split();
+
+      expect(node.getKeyCount()).toBe(2);
+      expect(result.rightNode.getKeyCount()).toBe(1);
+      expect(result.middleKey).toBe(30);
+
+      expect(node.getKeys()).toEqual([10, 20]);
+      expect(result.rightNode.getKeys()).toEqual([40]);
+    });
+
+    it('should maintain B+ tree invariants after split', () => {
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      // Give each leaf specific keys to verify navigation invariants
+      children[0].insert(5, 'five');
+      children[1].insert(15, 'fifteen');
+      children[2].insert(25, 'twenty-five');
+      children[3].insert(35, 'thirty-five');
+      children[4].insert(45, 'forty-five');
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      const result = node.split();
+
+      // Verify invariant: childCount = keyCount + 1 for both nodes
+      expect(node.getChildCount()).toBe(node.getKeyCount() + 1);
+      expect(result.rightNode.getChildCount()).toBe(result.rightNode.getKeyCount() + 1);
+
+      // Verify keys are sorted in both nodes
+      const leftKeys = node.getKeys();
+      for (let i = 1; i < leftKeys.length; i++) {
+        expect(leftKeys[i]).toBeGreaterThan(leftKeys[i - 1]);
+      }
+
+      const rightKeys = result.rightNode.getKeys();
+      for (let i = 1; i < rightKeys.length; i++) {
+        expect(rightKeys[i]).toBeGreaterThan(rightKeys[i - 1]);
+      }
+
+      // Verify all keys in left node < middleKey < all keys in right node
+      leftKeys.forEach(key => {
+        expect(key).toBeLessThan(result.middleKey);
+      });
+
+      rightKeys.forEach(key => {
+        expect(key).toBeGreaterThan(result.middleKey);
+      });
+
+      // Verify separator invariants for left node
+      const leftChildren = node.getChildren();
+      for (let i = 0; i < node.getKeyCount(); i++) {
+        const separator = node.getKey(i);
+        const leftChild = leftChildren[i] as LeafNode<number, string>;
+        const rightChild = leftChildren[i + 1] as LeafNode<number, string>;
+
+        // All keys in left child < separator
+        leftChild.getKeys().forEach(key => {
+          expect(key).toBeLessThan(separator);
+        });
+
+        // All keys in right child >= separator
+        rightChild.getKeys().forEach(key => {
+          expect(key).toBeGreaterThanOrEqual(separator);
+        });
+      }
+
+      // Verify separator invariants for right node
+      const rightChildren = result.rightNode.getChildren();
+      for (let i = 0; i < result.rightNode.getKeyCount(); i++) {
+        const separator = result.rightNode.getKey(i);
+        const leftChild = rightChildren[i] as LeafNode<number, string>;
+        const rightChild = rightChildren[i + 1] as LeafNode<number, string>;
+
+        leftChild.getKeys().forEach(key => {
+          expect(key).toBeLessThan(separator);
+        });
+
+        rightChild.getKeys().forEach(key => {
+          expect(key).toBeGreaterThanOrEqual(separator);
+        });
+      }
+    });
+
+    it('should handle split with minimum keys (3 keys for order 3)', () => {
+      const nodeOrder3 = new InternalNode<number, string>(3);
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(3));
+
+      nodeOrder3['children'] = [children[0]];
+      nodeOrder3.insertKeyAndChild(10, children[1]);
+      nodeOrder3.insertKeyAndChild(20, children[2]);
+      nodeOrder3.insertKeyAndChild(30, children[3]);
+
+      // Keys: [10, 20, 30] (3 keys)
+      // Middle index: floor(3 / 2) = 1
+      // Left: [10], Middle: 20, Right: [30]
+
+      const result = nodeOrder3.split();
+
+      expect(nodeOrder3.getKeyCount()).toBe(1);
+      expect(result.rightNode.getKeyCount()).toBe(1);
+      expect(result.middleKey).toBe(20);
+
+      expect(nodeOrder3.getKeys()).toEqual([10]);
+      expect(result.rightNode.getKeys()).toEqual([30]);
+
+      expect(nodeOrder3.getChildCount()).toBe(2);
+      expect(result.rightNode.getChildCount()).toBe(2);
+    });
   });
 
   describe('removeKeyAndChild', () => {
