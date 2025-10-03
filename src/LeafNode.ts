@@ -134,11 +134,6 @@ export class LeafNode<K, V> extends Node<K, V> {
   /**
    * Splits this leaf node into two nodes
    * Used when the leaf overflows (too many keys)
-   * TODO: Implement split logic:
-   * - Create new leaf node
-   * - Move half the key-value pairs to the new node
-   * - Update sibling pointers (next/prev)
-   * - Return the first key of the new node and the new node
    * @returns Object with the smallest key in the new node and the new node
    */
   split(): { splitKey: K; rightNode: LeafNode<K, V> } {

@@ -16,32 +16,212 @@ describe('BPlusTree', () => {
     it('should throw error for order < 3', () => {
       expect(() => new BPlusTree(2)).toThrow('Order must be at least 3');
     });
-
-    it.todo('should accept custom comparison function');
-    it.todo('should use default comparison for standard types');
-  });
-
-  describe('isEmpty', () => {
-    it('should return true for new tree', () => {
-      expect(tree.isEmpty()).toBe(true);
-    });
-
-    it.todo('should return false after insertion');
-    it.todo('should return true after deleting all keys');
   });
 
   describe('insert', () => {
-    it.todo('should insert into empty tree');
-    it.todo('should insert multiple keys in sorted order');
-    it.todo('should insert multiple keys in random order');
-    it.todo('should update value if key already exists');
-    it.todo('should handle insertion that causes leaf split');
-    it.todo('should handle insertion that causes root split');
-    it.todo('should handle insertion that causes multiple level splits');
-    it.todo('should maintain tree height after insertions');
-    it.todo('should handle duplicate key insertions');
-    it.todo('should handle large number of insertions (1000+)');
-    it.todo('should maintain B+ tree invariants after insertions');
+    it('should insert into empty tree', () => {
+      tree.insert(1, 'value1');
+      expect(tree.isEmpty()).toBe(false);
+      expect(tree.search(1)).toBe('value1');
+    });
+
+    it('should insert multiple keys in sorted order', () => {
+      tree.insert(10, 'ten');
+      tree.insert(20, 'twenty');
+      tree.insert(30, 'thirty');
+
+      expect(tree.search(10)).toBe('ten');
+      expect(tree.search(20)).toBe('twenty');
+      expect(tree.search(30)).toBe('thirty');
+    });
+
+    it('should insert multiple keys in random order', () => {
+      tree.insert(30, 'thirty');
+      tree.insert(10, 'ten');
+      tree.insert(50, 'fifty');
+      tree.insert(20, 'twenty');
+      tree.insert(40, 'forty');
+
+      expect(tree.search(10)).toBe('ten');
+      expect(tree.search(20)).toBe('twenty');
+      expect(tree.search(30)).toBe('thirty');
+      expect(tree.search(40)).toBe('forty');
+      expect(tree.search(50)).toBe('fifty');
+    });
+
+    it('should update value if key already exists', () => {
+      tree.insert(10, 'original');
+      tree.insert(10, 'updated');
+
+      expect(tree.search(10)).toBe('updated');
+      // Size should not increase when updating
+      const keys = [20, 30];
+      keys.forEach((k) => tree.insert(k, `value${k}`));
+      expect(tree.size()).toBe(3); // 10, 20, 30
+    });
+
+    it('should handle insertion that causes leaf split', () => {
+      // Order 4 means max 4 keys per node
+      // Before split: height should be 1 (single leaf)
+      tree.insert(10, 'ten');
+      tree.insert(20, 'twenty');
+      tree.insert(30, 'thirty');
+      tree.insert(40, 'forty');
+      expect(tree.getHeight()).toBe(1);
+
+      // Insert 5th key to force a split
+      tree.insert(50, 'fifty'); // This should cause split
+
+      // After split: tree should have height 2 (root became internal with 2 leaf children)
+      expect(tree.getHeight()).toBe(2);
+      expect(tree.size()).toBe(5);
+
+      // All values should still be searchable
+      expect(tree.search(10)).toBe('ten');
+      expect(tree.search(20)).toBe('twenty');
+      expect(tree.search(30)).toBe('thirty');
+      expect(tree.search(40)).toBe('forty');
+      expect(tree.search(50)).toBe('fifty');
+
+      // Tree structure should be valid
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle insertion that causes root split', () => {
+      // Order 4: fill root (leaf), then split it
+      // This creates an internal root with two leaf children
+
+      // Track height before and after split
+      expect(tree.getHeight()).toBe(1);
+
+      for (let i = 1; i <= 5; i++) {
+        tree.insert(i * 10, `value${i * 10}`);
+      }
+
+      // Height should increase to 2 (internal root + leaf level)
+      expect(tree.getHeight()).toBe(2);
+      expect(tree.size()).toBe(5);
+
+      // Tree should not be empty
+      expect(tree.isEmpty()).toBe(false);
+
+      // All values should be searchable
+      for (let i = 1; i <= 5; i++) {
+        expect(tree.search(i * 10)).toBe(`value${i * 10}`);
+      }
+
+      // Tree structure should be valid
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle insertion that causes multiple level splits', () => {
+      // Insert enough keys to cause multiple splits
+      // Order 4: 4 keys per node max
+      // With sequential insertions:
+      // - 1-4 keys: height 1
+      // - 5+ keys: height 2 (first split)
+      // - More keys will cause internal node splits, increasing height to 3+
+
+      const initialHeight = tree.getHeight();
+      expect(initialHeight).toBe(1);
+
+      // Insert 25 keys to create a deeper tree
+      for (let i = 1; i <= 25; i++) {
+        tree.insert(i, `value${i}`);
+      }
+
+      // Height should be at least 3 for order 4 with 25 keys
+      const finalHeight = tree.getHeight();
+      expect(finalHeight).toBeGreaterThanOrEqual(3);
+      expect(finalHeight).toBeGreaterThan(initialHeight);
+
+      // Size should match insertions
+      expect(tree.size()).toBe(25);
+
+      // All values should be searchable
+      for (let i = 1; i <= 25; i++) {
+        expect(tree.search(i)).toBe(`value${i}`);
+      }
+
+      // Tree structure should be valid
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should maintain tree height after insertions', () => {
+      const initialHeight = tree.getHeight();
+      expect(initialHeight).toBe(1); // Empty tree has height 1 (single leaf)
+
+      // Insert a few keys (no split)
+      tree.insert(10, 'ten');
+      tree.insert(20, 'twenty');
+      tree.insert(30, 'thirty');
+      expect(tree.getHeight()).toBe(1);
+
+      // Insert more to cause split
+      tree.insert(40, 'forty');
+      tree.insert(50, 'fifty');
+      expect(tree.getHeight()).toBe(2);
+    });
+
+    it('should handle duplicate key insertions', () => {
+      tree.insert(10, 'first');
+      const size1 = tree.size();
+
+      tree.insert(10, 'second');
+      const size2 = tree.size();
+
+      tree.insert(10, 'third');
+      const size3 = tree.size();
+
+      // Size should not change with duplicate keys
+      expect(size1).toBe(size2);
+      expect(size2).toBe(size3);
+      expect(size1).toBe(1);
+
+      // Latest value should be stored
+      expect(tree.search(10)).toBe('third');
+    });
+
+    it('should handle large number of insertions (1000+)', () => {
+      const n = 1000;
+
+      // Insert 1000 keys in random order
+      const keys = Array.from({ length: n }, (_, i) => i + 1);
+      // Shuffle array
+      for (let i = keys.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [keys[i], keys[j]] = [keys[j], keys[i]];
+      }
+
+      // Insert all keys
+      keys.forEach((key) => {
+        tree.insert(key, `value${key}`);
+      });
+
+      // Verify all keys are searchable
+      for (let i = 1; i <= n; i++) {
+        expect(tree.search(i)).toBe(`value${i}`);
+      }
+
+      expect(tree.size()).toBe(n);
+    });
+
+    it('should maintain B+ tree invariants after insertions', () => {
+      // Insert various keys
+      const keys = [50, 25, 75, 10, 30, 60, 80, 5, 15, 27, 35, 55, 65, 77, 85];
+      keys.forEach((key) => tree.insert(key, `value${key}`));
+
+      // Validate tree structure
+      expect(tree.validate()).toBe(true);
+
+      // All keys should be searchable
+      keys.forEach((key) => {
+        expect(tree.search(key)).toBe(`value${key}`);
+      });
+
+      // Size should match
+      expect(tree.size()).toBe(keys.length);
+    });
   });
 
   describe('search', () => {

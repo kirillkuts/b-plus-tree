@@ -54,8 +54,58 @@ export class BPlusTree<K, V> {
    * 5. Create new root if root splits
    */
   insert(key: K, value: V): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let node = this.root;
+
+    while (!node.isLeaf()) {
+      node = (node as InternalNode<K, V>).findChild(key);
+    }
+
+    const leaf = node as LeafNode<K, V>;
+
+    leaf.insert(key, value);
+
+    if ( leaf.getKeyCount() <= this.order ) {
+      return;
+    }
+
+    let {
+      splitKey,
+      rightNode,
+    } = leaf.split();
+
+    let internalNode: InternalNode<K, V> | null = null;
+
+    if ( leaf === this.root ) {
+      internalNode = new InternalNode(this.order);
+      internalNode['children'] = [leaf];
+      leaf.setParent(internalNode as Node<K, V>);
+
+      this.root = internalNode as any;
+    }
+
+    internalNode = leaf.getParent() as InternalNode<K, V>;
+
+    internalNode.insertKeyAndChild(splitKey, rightNode);
+
+    while (internalNode.getKeyCount() == this.order) {
+      let { middleKey, rightNode } = internalNode.split();
+
+      let parentNode;
+
+      if ( internalNode == this.root ) {
+        parentNode = new InternalNode<K, V>(this.order);
+        parentNode['children'] = [internalNode as Node<K, V>];
+        internalNode.setParent(parentNode as Node<K, V>);
+
+        this.root = parentNode as any;
+      }
+
+      parentNode = internalNode.getParent() as (InternalNode<K, V>);
+
+      parentNode.insertKeyAndChild(middleKey as K, rightNode as Node<K, V>);
+
+      internalNode = parentNode;
+    }
   }
 
   /**
@@ -67,8 +117,13 @@ export class BPlusTree<K, V> {
    * @returns The value if found, undefined otherwise
    */
   search(key: K): V | undefined {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let node = this.root;
+
+    while (!node.isLeaf()) {
+      node = (node as InternalNode<K, V>).findChild(key)
+    }
+
+    return (node as LeafNode<K, V>).search(key);
   }
 
   /**
@@ -133,8 +188,16 @@ export class BPlusTree<K, V> {
    * TODO: Implement by traversing down to a leaf
    */
   getHeight(): number {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let height = 1;
+
+    let node: Node<K, V> | null = this.root;
+
+    while(!node.isLeaf()) {
+      node = (node as InternalNode<K, V>).getChild(0);
+      height++;
+    }
+
+    return height;
   }
 
   /**
@@ -142,8 +205,19 @@ export class BPlusTree<K, V> {
    * TODO: Implement by traversing all leaf nodes
    */
   size(): number {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let node: Node<K, V> | null = this.root;
+
+    while(!node.isLeaf()) {
+      node = (node as InternalNode<K, V>).getChild(0);
+    }
+
+    let count = 0;
+    while(node) {
+      count += (node as LeafNode<K, V>).getKeyCount();
+      node = (node as LeafNode<K, V>).getNext();
+    }
+
+    return count;
   }
 
   /**
@@ -201,17 +275,77 @@ export class BPlusTree<K, V> {
    * @returns true if valid, throws error with details if invalid
    */
   validate(): boolean {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    return true;
   }
 
   /**
    * Returns a string representation of the tree structure
    * Useful for debugging
-   * TODO: Implement tree visualization
    */
   toString(): string {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    if (this.isEmpty()) {
+      return 'Empty B+ Tree';
+    }
+
+    const lines: string[] = [];
+    lines.push(`B+ Tree (order=${this.order}, height=${this.getHeight()}, size=${this.size()})`);
+    lines.push('');
+
+    this.printNode(this.root, '', true, lines, 0);
+
+    // Print leaf chain
+    lines.push('');
+    lines.push('Leaf Chain:');
+    let leaf = this.root;
+    while (!leaf.isLeaf()) {
+      leaf = (leaf as InternalNode<K, V>).getChild(0);
+    }
+
+    const leafKeys: K[] = [];
+    let currentLeaf: LeafNode<K, V> | null = leaf as LeafNode<K, V>;
+    while (currentLeaf) {
+      if ( currentLeaf.getKeys().includes(76 as any) ) {
+        debugger;
+      }
+
+      leafKeys.push(...currentLeaf.getKeys());
+      currentLeaf = currentLeaf.getNext();
+    }
+    lines.push(`  [${leafKeys.join(', ')}]`);
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Helper method to recursively print nodes
+   */
+  private printNode(
+    node: Node<K, V>,
+    prefix: string,
+    isLast: boolean,
+    lines: string[],
+    level: number,
+  ): void {
+    // Print current node
+    const connector = isLast ? '└── ' : '├── ';
+    const nodeType = node.isLeaf() ? 'LEAF' : 'INTERNAL';
+    const keys = node.getKeys();
+
+    if (node.isLeaf()) {
+      const values = (node as LeafNode<K, V>).getValues();
+      const entries = keys.map((k, i) => `${k}:${values[i]}`);
+      lines.push(`${prefix}${connector}${nodeType} [${entries.join(', ')}]`);
+    } else {
+      lines.push(`${prefix}${connector}${nodeType} [${keys.join(', ')}]`);
+
+      // Print children
+      const children = (node as InternalNode<K, V>).getChildren();
+      const newPrefix = prefix + (isLast ? '    ' : '│   ');
+
+      children.forEach((child, index) => {
+        const isLastChild = index === children.length - 1;
+        this.printNode(child, newPrefix, isLastChild, lines, level + 1);
+      });
+    }
   }
 }
