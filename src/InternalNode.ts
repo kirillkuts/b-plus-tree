@@ -89,8 +89,14 @@ export class InternalNode<K, V> extends Node<K, V> {
    * @returns The child node to traverse to
    */
   findChild(key: K): Node<K, V> {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let i = 0;
+    for(; i < this.keys.length; i++) {
+      if ( this.keys[i] > key ) {
+        break;
+      }
+    }
+
+    return this.children[i];
   }
 
   /**
