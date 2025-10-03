@@ -50,8 +50,40 @@ export class InternalNode<K, V> extends Node<K, V> {
    * - children[i+1] contains keys >= keys[i]
    */
   insertKeyAndChild(key: K, rightChild: Node<K, V>): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let i = 0;
+    for(; i < this.keys.length; i++) {
+      if ( this.keys[i] > key ) {
+        break;
+      }
+
+      if ( this.keys[i] == key ) {
+        break;
+      }
+    }
+
+    // insert the mey
+    this.keys = [
+      ...this.keys.slice(0, i),
+      key,
+      ...this.keys.slice(i),
+    ];
+
+    const newChildren = [];
+
+    let j = 0
+    for(; j <= i; j++) {
+      newChildren.push(this.children[j]);
+    }
+
+    newChildren.push(rightChild);
+
+    for(; j < this.keys.length; j++) {
+      newChildren.push(this.children[j]);
+    }
+
+    this.children = newChildren;
+
+    rightChild.setParent(this);
   }
 
   /**
