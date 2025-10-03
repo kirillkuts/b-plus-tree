@@ -45,9 +45,6 @@ export class InternalNode<K, V> extends Node<K, V> {
   /**
    * Inserts a key and corresponding right child pointer
    * The new key goes at the specified index, and the right child goes at index + 1
-   * TODO: Implement key and child insertion maintaining the invariant:
-   * - children[i] contains keys < keys[i]
-   * - children[i+1] contains keys >= keys[i]
    */
   insertKeyAndChild(key: K, rightChild: Node<K, V>): void {
     let i = 0;
