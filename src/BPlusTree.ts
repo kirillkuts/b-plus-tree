@@ -87,7 +87,7 @@ export class BPlusTree<K, V> {
 
     internalNode.insertKeyAndChild(splitKey, rightNode);
 
-    while (internalNode.getKeyCount() == this.order) {
+    while (internalNode.getKeyCount() >= this.order) {
       let { middleKey, rightNode } = internalNode.split();
 
       let parentNode;
@@ -304,10 +304,6 @@ export class BPlusTree<K, V> {
     const leafKeys: K[] = [];
     let currentLeaf: LeafNode<K, V> | null = leaf as LeafNode<K, V>;
     while (currentLeaf) {
-      if ( currentLeaf.getKeys().includes(76 as any) ) {
-        debugger;
-      }
-
       leafKeys.push(...currentLeaf.getKeys());
       currentLeaf = currentLeaf.getNext();
     }
