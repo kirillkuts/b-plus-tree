@@ -205,15 +205,185 @@ describe('LeafNode', () => {
   });
 
   describe('delete', () => {
-    it.todo('should return false when deleting from empty leaf');
-    it.todo('should delete existing key-value pair');
-    it.todo('should return true when key is found and deleted');
-    it.todo('should return false when key is not found');
-    it.todo('should maintain keys and values in sync after deletion');
-    it.todo('should handle deletion from beginning');
-    it.todo('should handle deletion from end');
-    it.todo('should handle deletion from middle');
-    it.todo('should handle deleting last remaining key');
+    it('should return false when deleting from empty leaf', () => {
+      const result = leaf.delete(10);
+      expect(result).toBe(false);
+      expect(leaf.getKeyCount()).toBe(0);
+    });
+
+    it('should delete existing key-value pair', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      expect(leaf.getKeyCount()).toBe(3);
+
+      const result = leaf.delete(20);
+
+      expect(result).toBe(true);
+      expect(leaf.getKeyCount()).toBe(2);
+      expect(leaf.getKeys()).toEqual([10, 30]);
+      expect(leaf.getValues()).toEqual(['ten', 'thirty']);
+    });
+
+    it('should return true when key is found and deleted', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const result = leaf.delete(10);
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when key is not found', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(30, 'thirty');
+
+      const result = leaf.delete(20);
+
+      expect(result).toBe(false);
+      expect(leaf.getKeyCount()).toBe(2); // Should remain unchanged
+    });
+
+    it('should maintain keys and values in sync after deletion', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+      leaf.insert(40, 'forty');
+
+      leaf.delete(20);
+
+      const keys = leaf.getKeys();
+      const values = leaf.getValues();
+
+      expect(keys.length).toBe(values.length);
+      expect(keys).toEqual([10, 30, 40]);
+      expect(values).toEqual(['ten', 'thirty', 'forty']);
+
+      // Verify each key maps to correct value
+      keys.forEach((key, index) => {
+        expect(leaf.search(key)).toBe(values[index]);
+      });
+    });
+
+    it('should handle deletion from beginning', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      const result = leaf.delete(10);
+
+      expect(result).toBe(true);
+      expect(leaf.getKeys()).toEqual([20, 30]);
+      expect(leaf.getValues()).toEqual(['twenty', 'thirty']);
+    });
+
+    it('should handle deletion from end', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      const result = leaf.delete(30);
+
+      expect(result).toBe(true);
+      expect(leaf.getKeys()).toEqual([10, 20]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty']);
+    });
+
+    it('should handle deletion from middle', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+      leaf.insert(40, 'forty');
+      leaf.insert(50, 'fifty');
+
+      const result = leaf.delete(30);
+
+      expect(result).toBe(true);
+      expect(leaf.getKeys()).toEqual([10, 20, 40, 50]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'forty', 'fifty']);
+    });
+
+    it('should handle deleting last remaining key', () => {
+      leaf.insert(42, 'answer');
+
+      expect(leaf.getKeyCount()).toBe(1);
+
+      const result = leaf.delete(42);
+
+      expect(result).toBe(true);
+      expect(leaf.getKeyCount()).toBe(0);
+      expect(leaf.getKeys()).toEqual([]);
+      expect(leaf.getValues()).toEqual([]);
+      expect(leaf.isEmpty()).toBe(true);
+    });
+
+    it('should handle multiple deletions', () => {
+      // Insert several keys
+      const entries = [10, 20, 30, 40, 50];
+      entries.forEach(key => leaf.insert(key, `value${key}`));
+
+      expect(leaf.getKeyCount()).toBe(5);
+
+      // Delete in various order
+      leaf.delete(30); // middle
+      expect(leaf.getKeyCount()).toBe(4);
+      expect(leaf.getKeys()).toEqual([10, 20, 40, 50]);
+
+      leaf.delete(10); // beginning
+      expect(leaf.getKeyCount()).toBe(3);
+      expect(leaf.getKeys()).toEqual([20, 40, 50]);
+
+      leaf.delete(50); // end
+      expect(leaf.getKeyCount()).toBe(2);
+      expect(leaf.getKeys()).toEqual([20, 40]);
+
+      leaf.delete(40);
+      leaf.delete(20);
+      expect(leaf.getKeyCount()).toBe(0);
+    });
+
+    it('should not delete the same key twice', () => {
+      leaf.insert(10, 'ten');
+
+      const result1 = leaf.delete(10);
+      expect(result1).toBe(true);
+      expect(leaf.getKeyCount()).toBe(0);
+
+      const result2 = leaf.delete(10);
+      expect(result2).toBe(false);
+      expect(leaf.getKeyCount()).toBe(0);
+    });
+
+    it('should maintain sorted order after deletions', () => {
+      leaf.insert(50, 'fifty');
+      leaf.insert(10, 'ten');
+      leaf.insert(30, 'thirty');
+      leaf.insert(20, 'twenty');
+      leaf.insert(40, 'forty');
+
+      leaf.delete(30);
+      leaf.delete(10);
+
+      const keys = leaf.getKeys();
+      for (let i = 1; i < keys.length; i++) {
+        expect(keys[i]).toBeGreaterThan(keys[i - 1]);
+      }
+
+      expect(keys).toEqual([20, 40, 50]);
+    });
+
+    it('should return correct search results after deletion', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      leaf.delete(20);
+
+      expect(leaf.search(10)).toBe('ten');
+      expect(leaf.search(20)).toBeUndefined();
+      expect(leaf.search(30)).toBe('thirty');
+    });
   });
 
   describe('split', () => {
