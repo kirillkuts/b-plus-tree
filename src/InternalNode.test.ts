@@ -440,10 +440,203 @@ describe('InternalNode', () => {
   });
 
   describe('findChildIndex', () => {
-    it.todo('should return correct index for existing child');
-    it.todo('should return -1 for non-existing child');
-    it.todo('should handle first child');
-    it.todo('should handle last child');
+    it('should return correct index for existing child', () => {
+      // Setup: Create internal node with multiple children
+      const child1 = new LeafNode<number, string>(4);
+      const child2 = new LeafNode<number, string>(4);
+      const child3 = new LeafNode<number, string>(4);
+      const child4 = new LeafNode<number, string>(4);
+
+      node['children'] = [child1];
+      node.insertKeyAndChild(20, child2);
+      node.insertKeyAndChild(40, child3);
+      node.insertKeyAndChild(60, child4);
+
+      // Keys: [20, 40, 60]
+      // Children: [child1, child2, child3, child4]
+
+      // Test finding each child
+      expect(node.findChildIndex(child1)).toBe(0);
+      expect(node.findChildIndex(child2)).toBe(1);
+      expect(node.findChildIndex(child3)).toBe(2);
+      expect(node.findChildIndex(child4)).toBe(3);
+    });
+
+    it('should return -1 for non-existing child', () => {
+      // Setup: Create node with some children
+      const child1 = new LeafNode<number, string>(4);
+      const child2 = new LeafNode<number, string>(4);
+
+      node['children'] = [child1];
+      node.insertKeyAndChild(20, child2);
+
+      // Create a child that is NOT in the node
+      const orphanChild = new LeafNode<number, string>(4);
+      orphanChild.insert(100, 'hundred');
+
+      // Should return -1 for child not in this node
+      expect(node.findChildIndex(orphanChild)).toBe(-1);
+    });
+
+    it('should handle first child', () => {
+      // Setup node with multiple children
+      const child1 = new LeafNode<number, string>(4);
+      const child2 = new LeafNode<number, string>(4);
+      const child3 = new LeafNode<number, string>(4);
+
+      node['children'] = [child1];
+      node.insertKeyAndChild(30, child2);
+      node.insertKeyAndChild(60, child3);
+
+      // First child should be at index 0
+      const index = node.findChildIndex(child1);
+      expect(index).toBe(0);
+
+      // Verify it's actually the first child
+      expect(node.getChild(index)).toBe(child1);
+      expect(index).toBe(0);
+    });
+
+    it('should handle last child', () => {
+      // Setup node with multiple children
+      const child1 = new LeafNode<number, string>(4);
+      const child2 = new LeafNode<number, string>(4);
+      const child3 = new LeafNode<number, string>(4);
+      const child4 = new LeafNode<number, string>(4);
+
+      node['children'] = [child1];
+      node.insertKeyAndChild(20, child2);
+      node.insertKeyAndChild(40, child3);
+      node.insertKeyAndChild(60, child4);
+
+      // Last child should be at index = childCount - 1
+      const index = node.findChildIndex(child4);
+      expect(index).toBe(3); // childCount is 4, so last index is 3
+
+      // Verify it's actually the last child
+      expect(node.getChild(index)).toBe(child4);
+      expect(index).toBe(node.getChildCount() - 1);
+    });
+
+    it('should handle single child', () => {
+      // Node with only one child
+      const onlyChild = new LeafNode<number, string>(4);
+      node['children'] = [onlyChild];
+
+      // Should return index 0
+      expect(node.findChildIndex(onlyChild)).toBe(0);
+
+      // Should return -1 for different child
+      const otherChild = new LeafNode<number, string>(4);
+      expect(node.findChildIndex(otherChild)).toBe(-1);
+    });
+
+    it('should handle middle children', () => {
+      // Setup with 5 children
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Test middle children (indices 1, 2, 3)
+      expect(node.findChildIndex(children[1])).toBe(1);
+      expect(node.findChildIndex(children[2])).toBe(2);
+      expect(node.findChildIndex(children[3])).toBe(3);
+    });
+
+    it('should work with internal node children (nested structure)', () => {
+      // Create a two-level structure with internal nodes as children
+      const leftInternalChild = new InternalNode<number, string>(4);
+      const rightInternalChild = new InternalNode<number, string>(4);
+
+      // Setup some structure in the child internal nodes
+      const leaf1 = new LeafNode<number, string>(4);
+      const leaf2 = new LeafNode<number, string>(4);
+      leftInternalChild['children'] = [leaf1];
+      leftInternalChild.insertKeyAndChild(10, leaf2);
+
+      // Add internal nodes as children of the main node
+      node['children'] = [leftInternalChild];
+      node.insertKeyAndChild(50, rightInternalChild);
+
+      // Should find internal children correctly
+      expect(node.findChildIndex(leftInternalChild)).toBe(0);
+      expect(node.findChildIndex(rightInternalChild)).toBe(1);
+    });
+
+    it('should be used for finding siblings during deletion', () => {
+      // This is a practical use case: finding the index to determine siblings
+      const child1 = new LeafNode<number, string>(4);
+      const child2 = new LeafNode<number, string>(4);
+      const child3 = new LeafNode<number, string>(4);
+
+      child1.insert(5, 'five');
+      child2.insert(25, 'twenty-five');
+      child3.insert(45, 'forty-five');
+
+      node['children'] = [child1];
+      node.insertKeyAndChild(20, child2);
+      node.insertKeyAndChild(40, child3);
+
+      // Keys: [20, 40]
+      // Children: [child1, child2, child3]
+
+      // Find index of middle child to determine its siblings
+      const indexOfChild2 = node.findChildIndex(child2);
+      expect(indexOfChild2).toBe(1);
+
+      // Left sibling should be at index - 1
+      const leftSibling = node.getChild(indexOfChild2 - 1);
+      expect(leftSibling).toBe(child1);
+
+      // Right sibling should be at index + 1
+      const rightSibling = node.getChild(indexOfChild2 + 1);
+      expect(rightSibling).toBe(child3);
+
+      // Separator key to left sibling is at index - 1
+      const leftSeparator = node.getKey(indexOfChild2 - 1);
+      expect(leftSeparator).toBe(20);
+
+      // Separator key to right sibling is at index
+      const rightSeparator = node.getKey(indexOfChild2);
+      expect(rightSeparator).toBe(40);
+    });
+
+    it('should return consistent results across multiple calls', () => {
+      // Setup
+      const child1 = new LeafNode<number, string>(4);
+      const child2 = new LeafNode<number, string>(4);
+
+      node['children'] = [child1];
+      node.insertKeyAndChild(50, child2);
+
+      // Multiple calls should return same result
+      expect(node.findChildIndex(child1)).toBe(0);
+      expect(node.findChildIndex(child1)).toBe(0);
+      expect(node.findChildIndex(child1)).toBe(0);
+
+      expect(node.findChildIndex(child2)).toBe(1);
+      expect(node.findChildIndex(child2)).toBe(1);
+    });
+
+    it('should handle node with maximum children', () => {
+      // Order 4 means max 4 keys, so max 5 children
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      node['children'] = [children[0]];
+      node.insertKeyAndChild(10, children[1]);
+      node.insertKeyAndChild(20, children[2]);
+      node.insertKeyAndChild(30, children[3]);
+      node.insertKeyAndChild(40, children[4]);
+
+      // Should find all children correctly
+      for (let i = 0; i < 5; i++) {
+        expect(node.findChildIndex(children[i])).toBe(i);
+      }
+    });
   });
 
   describe('split', () => {

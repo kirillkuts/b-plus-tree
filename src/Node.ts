@@ -30,6 +30,14 @@ export abstract class Node<K, V> {
     return this.keys.length;
   }
 
+  halfFull() {
+    return this.getKeyCount() >= Math.floor(this.order / 2);
+  }
+
+  canBorrow() {
+    return (this.getKeyCount() - 1) >= Math.floor(this.order / 2);
+  }
+
   /**
    * Returns the key at the specified index
    */

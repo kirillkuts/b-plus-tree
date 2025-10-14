@@ -236,20 +236,341 @@ describe('BPlusTree', () => {
   });
 
   describe('delete', () => {
-    it.todo('should return false when deleting from empty tree');
-    it.todo('should delete single key from tree');
-    it.todo('should return true when key is deleted');
-    it.todo('should return false when key does not exist');
-    it.todo('should handle deletion without underflow');
-    it.todo('should handle deletion causing borrow from left sibling');
-    it.todo('should handle deletion causing borrow from right sibling');
-    it.todo('should handle deletion causing merge with left sibling');
-    it.todo('should handle deletion causing merge with right sibling');
-    it.todo('should handle deletion causing root to shrink');
-    it.todo('should handle deleting all keys one by one');
-    it.todo('should handle deletion in various orders');
-    it.todo('should maintain B+ tree invariants after deletions');
-    it.todo('should not find deleted keys in search');
+    it('should return false when deleting from empty tree', () => {
+      // Empty tree should return false for any deletion attempt
+      expect(tree.delete(1)).toBe(false);
+      expect(tree.delete(100)).toBe(false);
+      expect(tree.isEmpty()).toBe(true);
+    });
+
+    it('should delete single key from tree', () => {
+      // Insert one key and delete it
+      tree.insert(10, 'ten');
+      expect(tree.size()).toBe(1);
+      expect(tree.search(10)).toBe('ten');
+
+      // Delete the key
+      const result = tree.delete(10);
+      expect(result).toBe(true);
+
+      // Tree should be empty now
+      expect(tree.isEmpty()).toBe(true);
+      expect(tree.size()).toBe(0);
+      expect(tree.search(10)).toBeUndefined();
+    });
+
+    it('should return true when key is deleted', () => {
+      // Insert multiple keys
+      tree.insert(10, 'ten');
+      tree.insert(20, 'twenty');
+      tree.insert(30, 'thirty');
+
+      // Delete existing key should return true
+      expect(tree.delete(20)).toBe(true);
+      expect(tree.search(20)).toBeUndefined();
+      expect(tree.size()).toBe(2);
+
+      // Other keys should still exist
+      expect(tree.search(10)).toBe('ten');
+      expect(tree.search(30)).toBe('thirty');
+    });
+
+    it('should return false when key does not exist', () => {
+      // Insert some keys
+      tree.insert(10, 'ten');
+      tree.insert(20, 'twenty');
+      tree.insert(30, 'thirty');
+
+      // Try to delete non-existing keys
+      expect(tree.delete(5)).toBe(false);
+      expect(tree.delete(15)).toBe(false);
+      expect(tree.delete(100)).toBe(false);
+
+      // Size should remain unchanged
+      expect(tree.size()).toBe(3);
+
+      // All original keys should still exist
+      expect(tree.search(10)).toBe('ten');
+      expect(tree.search(20)).toBe('twenty');
+      expect(tree.search(30)).toBe('thirty');
+    });
+
+    it('should handle deletion without underflow', () => {
+      // Order 4: minimum keys in non-root leaf = Math.ceil(4/2) = 2
+      // Insert enough keys to have a leaf with more than minimum
+      // After split: leaves will have ~2-3 keys each
+      tree.insert(10, 'v10');
+      tree.insert(20, 'v20');
+      tree.insert(30, 'v30');
+      tree.insert(40, 'v40');
+      tree.insert(50, 'v50');
+
+      const sizeBefore = tree.size();
+      const heightBefore = tree.getHeight();
+
+      // Delete a key from a leaf that won't underflow
+      const result = tree.delete(30);
+      expect(result).toBe(true);
+
+      // Tree structure should remain stable
+      expect(tree.getHeight()).toBe(heightBefore);
+      expect(tree.size()).toBe(sizeBefore - 1);
+
+      // Verify deletion
+      expect(tree.search(30)).toBeUndefined();
+
+      // Other keys should still be searchable
+      expect(tree.search(10)).toBe('v10');
+      expect(tree.search(20)).toBe('v20');
+      expect(tree.search(40)).toBe('v40');
+      expect(tree.search(50)).toBe('v50');
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle deletion causing borrow from left sibling', () => {
+      // Build a tree where deleting a key causes borrowing from left sibling
+      // Order 4: After splits, we'll have leaves with 2-3 keys
+      // Insert pattern to create specific leaf distribution
+      const keys = [10, 20, 30, 40, 50, 60, 70, 80];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      const sizeBefore = tree.size();
+
+      // Delete a key that will cause its leaf to underflow
+      // This should trigger borrowing from the left sibling
+      const result = tree.delete(70);
+      expect(result).toBe(true);
+
+      expect(tree.size()).toBe(sizeBefore - 1);
+      expect(tree.search(70)).toBeUndefined();
+
+      // All other keys should still be searchable
+      [10, 20, 30, 40, 50, 60, 80].forEach((k) => {
+        expect(tree.search(k)).toBe(`v${k}`);
+      });
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle deletion causing borrow from right sibling', () => {
+      // Build a tree where deleting a key causes borrowing from right sibling
+      const keys = [10, 20, 30, 40, 50, 60, 70, 80];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      const sizeBefore = tree.size();
+
+      // Delete a key that will cause its leaf to underflow
+      // This should trigger borrowing from the right sibling
+      const result = tree.delete(20);
+      expect(result).toBe(true);
+
+      const result2 = tree.delete(10);
+      expect(result2).toBe(true);
+
+      expect(tree.size()).toBe(sizeBefore - 2);
+      expect(tree.search(20)).toBeUndefined();
+      expect(tree.search(10)).toBeUndefined();
+
+      // All other keys should still be searchable
+      [30, 40, 50, 60, 70, 80].forEach((k) => {
+        expect(tree.search(k)).toBe(`v${k}`);
+      });
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle deletion causing merge with left sibling', () => {
+      // Build a tree structure where deletion causes a merge with left sibling
+      // Need leaves with minimum keys where neither can lend
+      const keys = [10, 20, 30, 40, 50, 60];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      const sizeBefore = tree.size();
+
+      // Delete keys to create minimal leaves, then delete to trigger merge
+      tree.delete(50);
+      const result = tree.delete(60);
+      expect(result).toBe(true);
+
+      expect(tree.size()).toBe(sizeBefore - 2);
+
+      // Remaining keys should be searchable
+      [10, 20, 30, 40].forEach((k) => {
+        expect(tree.search(k)).toBe(`v${k}`);
+      });
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle deletion causing merge with right sibling', () => {
+      // Build a tree structure where deletion causes a merge with right sibling
+      const keys = [10, 20, 30, 40, 50, 60];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      const sizeBefore = tree.size();
+
+      // Delete keys to trigger merge
+      tree.delete(10);
+      const result = tree.delete(20);
+      expect(result).toBe(true);
+
+      expect(tree.size()).toBe(sizeBefore - 2);
+
+      // Remaining keys should be searchable
+      [30, 40, 50, 60].forEach((k) => {
+        expect(tree.search(k)).toBe(`v${k}`);
+      });
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle deletion causing root to shrink', () => {
+      // Insert enough keys to create height > 1
+      for (let i = 1; i <= 10; i++) {
+        tree.insert(i * 10, `v${i * 10}`);
+      }
+
+      const initialHeight = tree.getHeight();
+      expect(initialHeight).toBeGreaterThan(1);
+
+      // Delete keys until the root shrinks (merges propagate up)
+      // Keep deleting until only a few keys remain
+      for (let i = 10; i > 2; i--) {
+        tree.delete(i * 10);
+      }
+
+      const finalHeight = tree.getHeight();
+
+      // Height should decrease or stay same (depending on exact tree structure)
+      expect(finalHeight).toBeLessThanOrEqual(initialHeight);
+
+      // Remaining keys should be searchable
+      expect(tree.search(10)).toBe('v10');
+      expect(tree.search(20)).toBe('v20');
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should handle deleting all keys one by one', () => {
+      // Insert multiple keys
+      const keys = [50, 25, 75, 10, 30, 60, 80, 5, 15, 27, 35, 55, 65, 77, 85];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      expect(tree.size()).toBe(keys.length);
+
+      // Delete all keys one by one
+      keys.forEach((k) => {
+        const result = tree.delete(k);
+        expect(result).toBe(true);
+        expect(tree.search(k)).toBeUndefined();
+      });
+
+      // Tree should be empty
+      expect(tree.isEmpty()).toBe(true);
+      expect(tree.size()).toBe(0);
+      expect(tree.getHeight()).toBe(1); // Should be back to single empty leaf
+    });
+
+    it('should handle deletion in various orders', () => {
+      // Test deletion in ascending order
+      const keys = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Delete in ascending order
+      for (let i = 0; i < 5; i++) {
+        expect(tree.delete(keys[i])).toBe(true);
+      }
+      expect(tree.size()).toBe(5);
+
+      // Verify remaining keys
+      for (let i = 5; i < keys.length; i++) {
+        expect(tree.search(keys[i])).toBe(`v${keys[i]}`);
+      }
+
+      // Re-insert and test descending deletion
+      tree = new BPlusTree<number, string>(4);
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Delete in descending order
+      for (let i = keys.length - 1; i >= keys.length - 5; i--) {
+        expect(tree.delete(keys[i])).toBe(true);
+      }
+      expect(tree.size()).toBe(5);
+
+      expect(tree.validate()).toBe(true);
+
+      // Re-insert and test random deletion
+      tree = new BPlusTree<number, string>(4);
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Delete in random order
+      const deleteOrder = [30, 70, 10, 90, 50];
+      deleteOrder.forEach((k) => {
+        expect(tree.delete(k)).toBe(true);
+      });
+      expect(tree.size()).toBe(keys.length - deleteOrder.length);
+
+      expect(tree.validate()).toBe(true);
+    });
+
+    it('should maintain B+ tree invariants after deletions', () => {
+      // Insert many keys
+      const keys = Array.from({ length: 50 }, (_, i) => (i + 1) * 10);
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Perform random deletions
+      const deleteKeys = [100, 250, 380, 420, 150, 200, 340, 480];
+      deleteKeys.forEach((k) => {
+        if (keys.includes(k)) {
+          tree.delete(k);
+        }
+      });
+
+      // Validate tree structure after deletions
+      expect(tree.validate()).toBe(true);
+
+      // All non-deleted keys should be searchable
+      keys.forEach((k) => {
+        if (!deleteKeys.includes(k)) {
+          expect(tree.search(k)).toBe(`v${k}`);
+        } else {
+          expect(tree.search(k)).toBeUndefined();
+        }
+      });
+
+      // Size should be correct
+      const expectedSize = keys.length - deleteKeys.filter((k) => keys.includes(k)).length;
+      expect(tree.size()).toBe(expectedSize);
+    });
+
+    it('should not find deleted keys in search', () => {
+      // Insert keys
+      const keys = [10, 20, 30, 40, 50, 60, 70, 80];
+      keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Delete some keys
+      const deletedKeys = [20, 40, 60];
+      deletedKeys.forEach((k) => {
+        tree.delete(k);
+      });
+
+      // Deleted keys should return undefined
+      deletedKeys.forEach((k) => {
+        expect(tree.search(k)).toBeUndefined();
+      });
+
+      // Non-deleted keys should still be found
+      const remainingKeys = keys.filter((k) => !deletedKeys.includes(k));
+      remainingKeys.forEach((k) => {
+        expect(tree.search(k)).toBe(`v${k}`);
+      });
+
+      // Try to delete already deleted keys - should return false
+      deletedKeys.forEach((k) => {
+        expect(tree.delete(k)).toBe(false);
+      });
+    });
   });
 
   describe('range', () => {

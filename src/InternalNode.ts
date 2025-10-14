@@ -105,8 +105,14 @@ export class InternalNode<K, V> extends Node<K, V> {
    * @returns The index of the child or -1 if not found
    */
   findChildIndex(child: Node<K, V>): number {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let i = 0;
+    for(; i < this.children.length; i++) {
+      if ( this.children[i] == child ) {
+        break;
+      }
+    }
+
+    return i === this.children.length ? -1 : i;
   }
 
   /**

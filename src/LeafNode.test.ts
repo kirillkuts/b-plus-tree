@@ -589,20 +589,666 @@ describe('LeafNode', () => {
     });
   });
 
-  describe('borrowFromLeft', () => {
-    it.todo('should borrow rightmost key-value from left sibling');
-    it.todo('should insert borrowed pair at beginning of current node');
-    it.todo('should remove borrowed pair from left sibling');
-    it.todo('should return new separator key for parent');
-    it.todo('should maintain sorted order after borrowing');
+  describe('tryBorrowFromLeft', () => {
+    it('should return undefined when there is no left sibling', () => {
+      // Leaf has no prev sibling
+      leaf.insert(30, 'thirty');
+      leaf.insert(40, 'forty');
+
+      expect(leaf.getPrev()).toBeNull();
+
+      const result = leaf.tryBorrowFromLeft();
+
+      expect(result).toBeUndefined();
+      expect(leaf.getKeyCount()).toBe(2); // Unchanged
+    });
+
+    it('should return undefined when left sibling cannot lend (at minimum)', () => {
+      // Order 4: minimum keys = floor(4/2) = 2
+      // If left sibling has 2 keys, after lending it would have 1 (below minimum)
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+
+      leaf.insert(30, 'thirty');
+      leaf.insert(40, 'forty');
+
+      // Link siblings
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      // Left sibling has 2 keys, canBorrow() should return false
+      expect(leftLeaf.canBorrow()).toBe(false);
+
+      const result = leaf.tryBorrowFromLeft();
+
+      expect(result).toBeUndefined();
+      expect(leaf.getKeyCount()).toBe(2); // Unchanged
+      expect(leftLeaf.getKeyCount()).toBe(2); // Unchanged
+    });
+
+    it('should borrow rightmost key-value from left sibling when possible', () => {
+      // Left sibling has 3 keys (can lend one and still have 2)
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      leftLeaf.insert(25, 'twenty-five');
+
+      // Current leaf has 1 key (underflow)
+      leaf.insert(30, 'thirty');
+
+      // Link siblings
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      expect(leftLeaf.canBorrow()).toBe(true);
+
+      const result = leaf.tryBorrowFromLeft();
+
+      // Should borrow 25 (rightmost from left sibling)
+      expect(result).toBe(25);
+      expect(leaf.getKeys()).toEqual([25, 30]);
+      expect(leaf.getValues()).toEqual(['twenty-five', 'thirty']);
+    });
+
+    it('should remove borrowed key-value from left sibling', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      leftLeaf.insert(25, 'twenty-five');
+
+      leaf.insert(30, 'thirty');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      expect(leftLeaf.getKeyCount()).toBe(3);
+
+      leaf.tryBorrowFromLeft();
+
+      // Left sibling should now have 2 keys (25 was removed)
+      expect(leftLeaf.getKeyCount()).toBe(2);
+      expect(leftLeaf.getKeys()).toEqual([10, 20]);
+      expect(leftLeaf.getValues()).toEqual(['ten', 'twenty']);
+    });
+
+    it('should return new first key of current node (new separator)', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      leftLeaf.insert(25, 'twenty-five');
+
+      leaf.insert(30, 'thirty');
+      leaf.insert(40, 'forty');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      const newSeparator = leaf.tryBorrowFromLeft();
+
+      // New separator should be the borrowed key (now first key of current node)
+      expect(newSeparator).toBe(25);
+      expect(leaf.getKey(0)).toBe(25);
+    });
+
+    it('should maintain sorted order after borrowing', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(15, 'fifteen');
+      leftLeaf.insert(20, 'twenty');
+
+      leaf.insert(30, 'thirty');
+      leaf.insert(40, 'forty');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      leaf.tryBorrowFromLeft();
+
+      // Both nodes should remain sorted
+      const leftKeys = leftLeaf.getKeys();
+      for (let i = 1; i < leftKeys.length; i++) {
+        expect(leftKeys[i]).toBeGreaterThan(leftKeys[i - 1]);
+      }
+
+      const currentKeys = leaf.getKeys();
+      for (let i = 1; i < currentKeys.length; i++) {
+        expect(currentKeys[i]).toBeGreaterThan(currentKeys[i - 1]);
+      }
+
+      // All keys in left should be < all keys in current
+      const maxLeft = leftKeys[leftKeys.length - 1];
+      const minCurrent = currentKeys[0];
+      expect(maxLeft).toBeLessThan(minCurrent);
+    });
+
+    it('should insert borrowed pair in correct sorted position', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(5, 'five');
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(15, 'fifteen');
+
+      leaf.insert(20, 'twenty');
+      leaf.insert(30, 'thirty');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      leaf.tryBorrowFromLeft();
+
+      // 15 should be inserted between left sibling and existing keys
+      expect(leaf.getKeys()).toEqual([15, 20, 30]);
+      expect(leaf.getValues()).toEqual(['fifteen', 'twenty', 'thirty']);
+    });
+
+    it('should handle borrowing when current node has single key', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      leftLeaf.insert(25, 'twenty-five');
+
+      leaf.insert(30, 'thirty'); // Only one key
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      const result = leaf.tryBorrowFromLeft();
+
+      expect(result).toBe(25);
+      expect(leaf.getKeyCount()).toBe(2);
+      expect(leaf.getKeys()).toEqual([25, 30]);
+    });
+
+    it('should handle borrowing when current node is empty', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      leftLeaf.insert(25, 'twenty-five');
+
+      // Current leaf is empty (extreme underflow)
+      expect(leaf.getKeyCount()).toBe(0);
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      const result = leaf.tryBorrowFromLeft();
+
+      expect(result).toBe(25);
+      expect(leaf.getKeyCount()).toBe(1);
+      expect(leaf.getKeys()).toEqual([25]);
+      expect(leaf.getValues()).toEqual(['twenty-five']);
+    });
+
+    it('should work correctly with order 3', () => {
+      // Order 3: minimum = floor(3/2) = 1
+      // Left sibling needs at least 2 keys to lend (2-1 = 1 >= minimum)
+      const leftLeaf = new LeafNode<number, string>(3);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+
+      const currentLeaf = new LeafNode<number, string>(3);
+      currentLeaf.insert(30, 'thirty');
+
+      leftLeaf.setNext(currentLeaf);
+      currentLeaf.setPrev(leftLeaf);
+
+      expect(leftLeaf.canBorrow()).toBe(true);
+
+      const result = currentLeaf.tryBorrowFromLeft();
+
+      expect(result).toBe(20);
+      expect(currentLeaf.getKeys()).toEqual([20, 30]);
+      expect(leftLeaf.getKeys()).toEqual([10]);
+    });
+
+    it('should work correctly with larger order', () => {
+      // Order 6: minimum = floor(6/2) = 3
+      const leftLeaf = new LeafNode<number, string>(6);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      leftLeaf.insert(30, 'thirty');
+      leftLeaf.insert(40, 'forty');
+
+      const currentLeaf = new LeafNode<number, string>(6);
+      currentLeaf.insert(50, 'fifty');
+
+      leftLeaf.setNext(currentLeaf);
+      currentLeaf.setPrev(leftLeaf);
+
+      expect(leftLeaf.canBorrow()).toBe(true);
+
+      const result = currentLeaf.tryBorrowFromLeft();
+
+      expect(result).toBe(40);
+      expect(currentLeaf.getKeys()).toEqual([40, 50]);
+      expect(leftLeaf.getKeyCount()).toBe(3); // Still at minimum
+    });
+
+    it('should preserve key-value correspondence after borrowing', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'value10');
+      leftLeaf.insert(20, 'value20');
+      leftLeaf.insert(25, 'value25');
+
+      leaf.insert(30, 'value30');
+      leaf.insert(40, 'value40');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      leaf.tryBorrowFromLeft();
+
+      // Verify each key still maps to its correct value
+      expect(leaf.search(25)).toBe('value25');
+      expect(leaf.search(30)).toBe('value30');
+      expect(leaf.search(40)).toBe('value40');
+
+      expect(leftLeaf.search(10)).toBe('value10');
+      expect(leftLeaf.search(20)).toBe('value20');
+      expect(leftLeaf.search(25)).toBeUndefined(); // No longer in left
+    });
+
+    it('should handle multiple consecutive borrows', () => {
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(5, 'five');
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(15, 'fifteen');
+      leftLeaf.insert(20, 'twenty');
+
+      leaf.insert(30, 'thirty');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      // First borrow
+      const result1 = leaf.tryBorrowFromLeft();
+      expect(result1).toBe(20);
+      expect(leaf.getKeys()).toEqual([20, 30]);
+      expect(leftLeaf.getKeyCount()).toBe(3);
+
+      // Second borrow (if still possible)
+      const result2 = leaf.tryBorrowFromLeft();
+      expect(result2).toBe(15);
+      expect(leaf.getKeys()).toEqual([15, 20, 30]);
+      expect(leftLeaf.getKeyCount()).toBe(2);
+
+      // Third borrow should fail (left sibling at minimum)
+      const result3 = leaf.tryBorrowFromLeft();
+      expect(result3).toBeUndefined();
+    });
+
+    it('should not borrow when left sibling would go below minimum', () => {
+      // Order 4: minimum = 2
+      const leftLeaf = new LeafNode<number, string>(4);
+      leftLeaf.insert(10, 'ten');
+      leftLeaf.insert(20, 'twenty');
+      // Left has exactly 2 keys (at minimum)
+
+      leaf.insert(30, 'thirty');
+
+      leftLeaf.setNext(leaf);
+      leaf.setPrev(leftLeaf);
+
+      expect(leftLeaf.canBorrow()).toBe(false);
+
+      const result = leaf.tryBorrowFromLeft();
+
+      expect(result).toBeUndefined();
+      // Both nodes unchanged
+      expect(leftLeaf.getKeys()).toEqual([10, 20]);
+      expect(leaf.getKeys()).toEqual([30]);
+    });
   });
 
-  describe('borrowFromRight', () => {
-    it.todo('should borrow leftmost key-value from right sibling');
-    it.todo('should insert borrowed pair at end of current node');
-    it.todo('should remove borrowed pair from right sibling');
-    it.todo('should return new separator key for parent');
-    it.todo('should maintain sorted order after borrowing');
+  describe('tryBorrowFromRight', () => {
+    it('should return undefined when there is no right sibling', () => {
+      // Leaf has no next sibling
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      expect(leaf.getNext()).toBeNull();
+
+      const result = leaf.tryBorrowFromRight();
+
+      expect(result).toBeUndefined();
+      expect(leaf.getKeyCount()).toBe(2); // Unchanged
+    });
+
+    it('should return undefined when right sibling cannot lend (at minimum)', () => {
+      // Order 4: minimum keys = floor(4/2) = 2
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      // Link siblings
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      // Right sibling has 2 keys, canBorrow() should return false
+      expect(rightLeaf.canBorrow()).toBe(false);
+
+      const result = leaf.tryBorrowFromRight();
+
+      expect(result).toBeUndefined();
+      expect(leaf.getKeyCount()).toBe(2); // Unchanged
+      expect(rightLeaf.getKeyCount()).toBe(2); // Unchanged
+    });
+
+    it('should borrow leftmost key-value from right sibling when possible', () => {
+      // Current leaf has 1 key (underflow)
+      leaf.insert(10, 'ten');
+
+      // Right sibling has 3 keys (can lend one and still have 2)
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      // Link siblings
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      expect(rightLeaf.canBorrow()).toBe(true);
+
+      const result = leaf.tryBorrowFromRight();
+
+      // Should borrow 30 (leftmost from right sibling)
+      expect(result).toBe(30);
+      expect(leaf.getKeys()).toEqual([10, 30]);
+      expect(leaf.getValues()).toEqual(['ten', 'thirty']);
+    });
+
+    it('should remove borrowed key-value from right sibling', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      expect(rightLeaf.getKeyCount()).toBe(3);
+
+      leaf.tryBorrowFromRight();
+
+      // Right sibling should now have 2 keys (30 was removed)
+      expect(rightLeaf.getKeyCount()).toBe(2);
+      expect(rightLeaf.getKeys()).toEqual([40, 50]);
+      expect(rightLeaf.getValues()).toEqual(['forty', 'fifty']);
+    });
+
+    it('should return borrowed key (which is inserted into current node)', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      const borrowedKey = leaf.tryBorrowFromRight();
+
+      // Should return the borrowed key
+      expect(borrowedKey).toBe(30);
+      // The borrowed key should now be in current node
+      expect(leaf.getKeys()).toContain(30);
+    });
+
+    it('should maintain sorted order after borrowing', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(35, 'thirty-five');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.tryBorrowFromRight();
+
+      // Both nodes should remain sorted
+      const currentKeys = leaf.getKeys();
+      for (let i = 1; i < currentKeys.length; i++) {
+        expect(currentKeys[i]).toBeGreaterThan(currentKeys[i - 1]);
+      }
+
+      const rightKeys = rightLeaf.getKeys();
+      for (let i = 1; i < rightKeys.length; i++) {
+        expect(rightKeys[i]).toBeGreaterThan(rightKeys[i - 1]);
+      }
+
+      // All keys in current should be < all keys in right
+      const maxCurrent = currentKeys[currentKeys.length - 1];
+      const minRight = rightKeys[0];
+      expect(maxCurrent).toBeLessThan(minRight);
+    });
+
+    it('should insert borrowed pair in correct sorted position', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(25, 'twenty-five');
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.tryBorrowFromRight();
+
+      // 25 should be inserted at the end (after 10, 20)
+      expect(leaf.getKeys()).toEqual([10, 20, 25]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'twenty-five']);
+    });
+
+    it('should handle borrowing when current node has single key', () => {
+      leaf.insert(10, 'ten'); // Only one key
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      const result = leaf.tryBorrowFromRight();
+
+      expect(result).toBe(30);
+      expect(leaf.getKeyCount()).toBe(2);
+      expect(leaf.getKeys()).toEqual([10, 30]);
+    });
+
+    it('should handle borrowing when current node is empty', () => {
+      // Current leaf is empty (extreme underflow)
+      expect(leaf.getKeyCount()).toBe(0);
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      const result = leaf.tryBorrowFromRight();
+
+      expect(result).toBe(30);
+      expect(leaf.getKeyCount()).toBe(1);
+      expect(leaf.getKeys()).toEqual([30]);
+      expect(leaf.getValues()).toEqual(['thirty']);
+    });
+
+    it('should work correctly with order 3', () => {
+      // Order 3: minimum = floor(3/2) = 1
+      const currentLeaf = new LeafNode<number, string>(3);
+      currentLeaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(3);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      currentLeaf.setNext(rightLeaf);
+      rightLeaf.setPrev(currentLeaf);
+
+      expect(rightLeaf.canBorrow()).toBe(true);
+
+      const result = currentLeaf.tryBorrowFromRight();
+
+      expect(result).toBe(30);
+      expect(currentLeaf.getKeys()).toEqual([10, 30]);
+      expect(rightLeaf.getKeys()).toEqual([40]);
+    });
+
+    it('should work correctly with larger order', () => {
+      // Order 6: minimum = floor(6/2) = 3
+      const currentLeaf = new LeafNode<number, string>(6);
+      currentLeaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(6);
+      rightLeaf.insert(50, 'fifty');
+      rightLeaf.insert(60, 'sixty');
+      rightLeaf.insert(70, 'seventy');
+      rightLeaf.insert(80, 'eighty');
+
+      currentLeaf.setNext(rightLeaf);
+      rightLeaf.setPrev(currentLeaf);
+
+      expect(rightLeaf.canBorrow()).toBe(true);
+
+      const result = currentLeaf.tryBorrowFromRight();
+
+      expect(result).toBe(50);
+      expect(currentLeaf.getKeys()).toEqual([10, 50]);
+      expect(rightLeaf.getKeyCount()).toBe(3); // Still at minimum
+    });
+
+    it('should preserve key-value correspondence after borrowing', () => {
+      leaf.insert(10, 'value10');
+      leaf.insert(20, 'value20');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'value30');
+      rightLeaf.insert(40, 'value40');
+      rightLeaf.insert(50, 'value50');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.tryBorrowFromRight();
+
+      // Verify each key still maps to its correct value
+      expect(leaf.search(10)).toBe('value10');
+      expect(leaf.search(20)).toBe('value20');
+      expect(leaf.search(30)).toBe('value30');
+
+      expect(rightLeaf.search(30)).toBeUndefined(); // No longer in right
+      expect(rightLeaf.search(40)).toBe('value40');
+      expect(rightLeaf.search(50)).toBe('value50');
+    });
+
+    it('should handle multiple consecutive borrows', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+      rightLeaf.insert(60, 'sixty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      // First borrow
+      const result1 = leaf.tryBorrowFromRight();
+      expect(result1).toBe(30);
+      expect(leaf.getKeys()).toEqual([10, 30]);
+      expect(rightLeaf.getKeyCount()).toBe(3);
+
+      // Second borrow (if still possible)
+      const result2 = leaf.tryBorrowFromRight();
+      expect(result2).toBe(40);
+      expect(leaf.getKeys()).toEqual([10, 30, 40]);
+      expect(rightLeaf.getKeyCount()).toBe(2);
+
+      // Third borrow should fail (right sibling at minimum)
+      const result3 = leaf.tryBorrowFromRight();
+      expect(result3).toBeUndefined();
+    });
+
+    it('should not borrow when right sibling would go below minimum', () => {
+      // Order 4: minimum = 2
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      // Right has exactly 2 keys (at minimum)
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      expect(rightLeaf.canBorrow()).toBe(false);
+
+      const result = leaf.tryBorrowFromRight();
+
+      expect(result).toBeUndefined();
+      // Both nodes unchanged
+      expect(leaf.getKeys()).toEqual([10]);
+      expect(rightLeaf.getKeys()).toEqual([30, 40]);
+    });
+
+    it('should update right sibling first key after borrowing', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      // Before borrowing, right sibling starts with 30
+      expect(rightLeaf.getKey(0)).toBe(30);
+
+      leaf.tryBorrowFromRight();
+
+      // After borrowing, right sibling should now start with 40
+      expect(rightLeaf.getKey(0)).toBe(40);
+    });
+
+    it('should return the new first key of right sibling (new separator)', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+      rightLeaf.insert(50, 'fifty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      const result = leaf.tryBorrowFromRight();
+
+      // The returned key (30) was inserted into current node
+      // But note: the method returns the borrowed key, not the new separator
+      // The new separator for parent should be rightLeaf.getKey(0) after borrowing
+      expect(result).toBe(30);
+      // After borrowing, right sibling starts with 40 (this becomes new separator)
+      expect(rightLeaf.getKey(0)).toBe(40);
+    });
   });
 
   describe('mergeWithRight', () => {

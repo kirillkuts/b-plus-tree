@@ -127,8 +127,27 @@ export class LeafNode<K, V> extends Node<K, V> {
    * @returns true if the key was found and deleted, false otherwise
    */
   delete(key: K): boolean {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    const index = this.keys.findIndex(k => k === key);
+
+    if (index == -1) {
+      return false;
+    }
+
+    this.keys = [
+        ...this.keys.slice(0, index),
+        ...this.keys.slice(index + 1),
+    ];
+
+    this.values = [
+        ...this.values.slice(0, index),
+        ...this.values.slice(index + 1),
+    ];
+
+    return true;
+  }
+
+  isEmpty() {
+    return this.values.length === 0;
   }
 
   /**
@@ -165,27 +184,41 @@ export class LeafNode<K, V> extends Node<K, V> {
   /**
    * Borrows a key-value pair from the left sibling
    * Used during deletion when this node has too few keys
-   * TODO: Implement borrowing logic:
-   * - Take the rightmost key-value from left sibling
-   * - Insert it into this node
-   * - Update parent's separator key
    */
-  borrowFromLeft(leftSibling: LeafNode<K, V>): K {
-    // TODO: Implement
-    throw new Error('Not implemented');
+  tryBorrowFromLeft(): undefined | K {
+    const leftLeaf = this.getPrev() as LeafNode<K, V> | undefined;
+
+    if ( leftLeaf && leftLeaf.canBorrow() ) {
+      const key = leftLeaf['keys'].pop()
+      const value = leftLeaf['values'].pop();
+
+      if ( key === undefined || value === undefined ) {
+        return undefined;
+      }
+
+      this.insert(key, value);
+      return  key;
+    }
+
+    return undefined;
   }
 
-  /**
-   * Borrows a key-value pair from the right sibling
-   * Used during deletion when this node has too few keys
-   * TODO: Implement borrowing logic:
-   * - Take the leftmost key-value from right sibling
-   * - Insert it into this node
-   * - Update parent's separator key
-   */
-  borrowFromRight(rightSibling: LeafNode<K, V>): K {
-    // TODO: Implement
-    throw new Error('Not implemented');
+  tryBorrowFromRight(): undefined | K {
+    const rightLeaf = this.getNext() as LeafNode<K, V> | undefined;
+
+    if ( rightLeaf && rightLeaf.canBorrow() ) {
+      const key = rightLeaf['keys'].shift()
+      const value = rightLeaf['values'].shift();
+
+      if ( key === undefined || value === undefined ) {
+        return undefined;
+      }
+
+      this.insert(key, value);
+      return rightLeaf['keys'][0];
+    }
+
+    return undefined;
   }
 
   /**

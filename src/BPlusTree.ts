@@ -137,8 +137,49 @@ export class BPlusTree<K, V> {
    * @returns true if key was found and deleted, false otherwise
    */
   delete(key: K): boolean {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    let node = this.root;
+
+    while (!node.isLeaf()) {
+      node = (node as InternalNode<K, V>).findChild(key)
+    }
+
+    const leaf =  (node as LeafNode<K, V>)
+
+    const deleted = leaf.delete(key);
+
+    if ( !deleted ) {
+      return false; // key not found
+    }
+
+    if ( !leaf.halfFull() ) {
+      let newSplitKey = leaf.tryBorrowFromLeft();
+
+      if (newSplitKey != undefined) {
+        const parent = (leaf.getParent() as InternalNode<K, V>);
+        const splitIndex = parent.findChildIndex(leaf)
+
+        parent['keys'][splitIndex - 1] = newSplitKey;
+        return true;
+      }
+
+      newSplitKey = leaf.tryBorrowFromRight();
+
+      if (newSplitKey != undefined) {
+        const parent = (leaf.getParent() as InternalNode<K, V>);
+        const splitIndex = parent.findChildIndex(leaf)
+
+        parent['keys'][splitIndex] = newSplitKey;
+        return true;
+      }
+
+      // const rightLeaf = leaf.getNext() as LeafNode<K, V> | undefined;
+      //
+      // if ( rightLeaf && rightLeaf.getKeyCount() >= this.order ) {
+      //
+      // }
+    }
+
+    return true;
   }
 
   /**
@@ -275,7 +316,223 @@ export class BPlusTree<K, V> {
    * @returns true if valid, throws error with details if invalid
    */
   validate(): boolean {
+    // Empty tree is valid
+    if (this.isEmpty()) {
+      return true;
+    }
+
+    // Track the expected leaf level (all leaves should be at this level)
+    let expectedLeafLevel: number | null = null;
+
+    // Validate the tree recursively
+    const validateNode = (
+      node: Node<K, V>,
+      level: number,
+      minKey: K | null,
+      maxKey: K | null,
+    ): void => {
+      // 1. Validate key count bounds
+      const keyCount = node.getKeyCount();
+
+      if (node === this.root) {
+        // Root can have 0 keys (if it's a leaf) or 1+ keys (if internal)
+        if (!node.isLeaf() && keyCount === 0) {
+          throw new Error('Root internal node must have at least 1 key');
+        }
+      } else {
+        if (!node.halfFull()) {
+          throw new Error(
+              `${node.isLeaf() ? 'Leaf node' : 'Internal node'} has ${keyCount} keys (order: ${this.order}), less then half full.`,
+          );
+        }
+      }
+
+      // 2. Validate keys are in sorted order
+      const keys = node.getKeys();
+      for (let i = 1; i < keys.length; i++) {
+        if (this.compare(keys[i - 1], keys[i]) >= 0) {
+          throw new Error(
+            `Keys not in sorted order: ${keys[i - 1]} >= ${keys[i]} at index ${i}`,
+          );
+        }
+      }
+
+      // 3. Validate keys are within the allowed range [minKey, maxKey]
+      if (minKey !== null && keys.length > 0) {
+        if (this.compare(keys[0], minKey) < 0) {
+          throw new Error(
+            `Key ${keys[0]} is less than minimum allowed ${minKey}`,
+          );
+        }
+      }
+
+      if (maxKey !== null && keys.length > 0) {
+        if (this.compare(keys[keys.length - 1], maxKey) >= 0) {
+          throw new Error(
+            `Key ${keys[keys.length - 1]} is >= maximum allowed ${maxKey}`,
+          );
+        }
+      }
+
+      if (node.isLeaf()) {
+        // 4. Validate all leaves are at the same level
+        if (expectedLeafLevel === null) {
+          expectedLeafLevel = level;
+        } else if (level !== expectedLeafLevel) {
+          throw new Error(
+            `Leaf at level ${level}, expected level ${expectedLeafLevel}. Tree is not balanced!`,
+          );
+        }
+      } else {
+        // Internal node validations
+        const internalNode = node as InternalNode<K, V>;
+        const children = internalNode.getChildren();
+
+        // 5. Validate childCount = keyCount + 1
+        if (children.length !== keys.length + 1) {
+          throw new Error(
+            `Internal node has ${children.length} children but ${keys.length} keys. Should be ${keys.length + 1}`,
+          );
+        }
+
+        // 6. Validate parent-child relationships
+        for (let i = 0; i < children.length; i++) {
+          const child = children[i];
+
+          // Check parent pointer
+          if (child.getParent() !== node) {
+            throw new Error(
+              `Child at index ${i} has incorrect parent pointer`,
+            );
+          }
+
+          // Determine the key range for this child
+          // Child[i] should have keys in range:
+          // - Min: keys[i-1] (or null if i === 0)
+          // - Max: keys[i] (or null if i === keys.length)
+          const childMinKey = i === 0 ? minKey : keys[i - 1];
+          const childMaxKey = i === keys.length ? maxKey : keys[i];
+
+          // Recursively validate child
+          validateNode(child, level + 1, childMinKey, childMaxKey);
+        }
+
+        // 7. Validate separator keys
+        // For each key[i], all keys in children[i] should be < key[i]
+        // and all keys in children[i+1] should be >= key[i]
+        for (let i = 0; i < keys.length; i++) {
+          const separator = keys[i];
+          const leftChild = children[i];
+          const rightChild = children[i + 1];
+
+          // Get all keys from left child subtree
+          const leftKeys = this.getAllKeysInSubtree(leftChild);
+          for (const key of leftKeys) {
+            if (this.compare(key, separator) >= 0) {
+              throw new Error(
+                `Left child contains key ${key} >= separator ${separator}`,
+              );
+            }
+          }
+
+          // Get all keys from right child subtree
+          const rightKeys = this.getAllKeysInSubtree(rightChild);
+          for (const key of rightKeys) {
+            if (this.compare(key, separator) < 0) {
+              throw new Error(
+                `Right child contains key ${key} < separator ${separator}`,
+              );
+            }
+          }
+        }
+      }
+    };
+
+    // Start validation from root
+    validateNode(this.root, 1, null, null);
+
+    // 8. Validate leaf linked list
+    this.validateLeafLinkedList();
+
     return true;
+  }
+
+  /**
+   * Helper method to get all keys in a subtree
+   */
+  private getAllKeysInSubtree(node: Node<K, V>): K[] {
+    if (node.isLeaf()) {
+      return node.getKeys();
+    }
+
+    const keys: K[] = [];
+    const internalNode = node as InternalNode<K, V>;
+    const children = internalNode.getChildren();
+
+    for (const child of children) {
+      keys.push(...this.getAllKeysInSubtree(child));
+    }
+
+    return keys;
+  }
+
+  /**
+   * Helper method to validate the leaf linked list
+   */
+  private validateLeafLinkedList(): void {
+    // Find the leftmost leaf
+    let node: Node<K, V> = this.root;
+    while (!node.isLeaf()) {
+      node = (node as InternalNode<K, V>).getChild(0);
+    }
+
+    let currentLeaf: LeafNode<K, V> | null = node as LeafNode<K, V>;
+    let prevLeaf: LeafNode<K, V> | null = null;
+    const visitedLeaves = new Set<LeafNode<K, V>>();
+    let leafCount = 0;
+
+    while (currentLeaf !== null) {
+      leafCount++;
+
+      // Check for cycles in the linked list
+      if (visitedLeaves.has(currentLeaf)) {
+        throw new Error('Cycle detected in leaf linked list');
+      }
+      visitedLeaves.add(currentLeaf);
+
+      // Validate prev pointer
+      if (currentLeaf.getPrev() !== prevLeaf) {
+        throw new Error(
+          `Leaf prev pointer is incorrect. Expected ${prevLeaf ? 'a leaf' : 'null'}, got ${currentLeaf.getPrev() ? 'a leaf' : 'null'}`,
+        );
+      }
+
+      // Validate keys are in sorted order across the linked list
+      if (prevLeaf !== null) {
+        const prevKeys = prevLeaf.getKeys();
+        const currentKeys = currentLeaf.getKeys();
+
+        if (prevKeys.length > 0 && currentKeys.length > 0) {
+          const lastPrevKey = prevKeys[prevKeys.length - 1];
+          const firstCurrentKey = currentKeys[0];
+
+          if (this.compare(lastPrevKey, firstCurrentKey) >= 0) {
+            throw new Error(
+              `Keys not in sorted order across leaf boundary: ${lastPrevKey} >= ${firstCurrentKey}`,
+            );
+          }
+        }
+      }
+
+      // Move to next leaf
+      prevLeaf = currentLeaf;
+      currentLeaf = currentLeaf.getNext();
+    }
+
+    // Validate that we have at least one leaf
+    if (leafCount === 0) {
+      throw new Error('No leaves found in tree');
+    }
   }
 
   /**
