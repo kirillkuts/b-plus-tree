@@ -190,7 +190,16 @@ export class InternalNode<K, V> extends Node<K, V> {
    * - Update parent pointers
    */
   mergeWithRight(rightSibling: InternalNode<K, V>, parentKey: K): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    if ( rightSibling['children'].length == 0 ) {
+      return;
+    }
+
+    this.keys.push(parentKey);
+    this.keys.push(...rightSibling['keys']);
+    this.children.push(...rightSibling['children']);
+
+    this.children.forEach((child: Node<K, V>) => {
+      child.setParent(this);
+    })
   }
 }

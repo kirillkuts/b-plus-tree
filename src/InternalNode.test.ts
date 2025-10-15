@@ -963,12 +963,328 @@ describe('InternalNode', () => {
   });
 
   describe('mergeWithRight', () => {
-    it.todo('should combine all keys from both nodes');
-    it.todo('should combine all children from both nodes');
-    it.todo('should pull down parent separator key');
-    it.todo('should update parent pointers of all children');
-    it.todo('should handle merge with various key counts');
-    it.todo('should result in valid node after merge');
+    it('should combine all keys from both nodes with parent separator key', () => {
+      // Setup: Create two internal nodes with minimal keys
+      // Left: keys [10], children [c0, c1]
+      // Right: keys [30], children [c2, c3]
+      // Parent separator: 20
+
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      const parentKey = 20;
+
+      leftNode.mergeWithRight(rightNode, parentKey);
+
+      // After merge: keys should be [10, 20, 30]
+      expect(leftNode.getKeys()).toEqual([10, 20, 30]);
+      expect(leftNode.getKeyCount()).toBe(3);
+    });
+
+    it('should combine all children from both nodes', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      // After merge: children should be [c0, c1, c2, c3]
+      expect(leftNode.getChildCount()).toBe(4);
+      expect(leftNode.getChild(0)).toBe(children[0]);
+      expect(leftNode.getChild(1)).toBe(children[1]);
+      expect(leftNode.getChild(2)).toBe(children[2]);
+      expect(leftNode.getChild(3)).toBe(children[3]);
+    });
+
+    it('should pull down parent separator key between node keys', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      const parentKey = 20;
+
+      leftNode.mergeWithRight(rightNode, parentKey);
+
+      // The parent key should be in the middle: [10, 20, 30]
+      const keys = leftNode.getKeys();
+      expect(keys).toContain(parentKey);
+      expect(keys.indexOf(parentKey)).toBe(1); // Middle position
+
+      // Keys should be sorted
+      expect(keys).toEqual([10, 20, 30]);
+    });
+
+    it('should update parent pointers of all moved children', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      // Set parent pointers for right node's children
+      children[2].setParent(rightNode as any);
+      children[3].setParent(rightNode as any);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      // After merge, all children should point to leftNode
+      expect(children[0].getParent()).toBe(leftNode);
+      expect(children[1].getParent()).toBe(leftNode);
+      expect(children[2].getParent()).toBe(leftNode);
+      expect(children[3].getParent()).toBe(leftNode);
+    });
+
+    it('should handle merge with various key counts (left=1, right=1)', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(40, children[3]);
+
+      leftNode.mergeWithRight(rightNode, 25);
+
+      expect(leftNode.getKeys()).toEqual([10, 25, 40]);
+      expect(leftNode.getChildCount()).toBe(4);
+    });
+
+    it('should handle merge with various key counts (left=2, right=1)', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+      leftNode.insertKeyAndChild(15, children[2]);
+
+      rightNode['children'] = [children[3]];
+      rightNode.insertKeyAndChild(40, children[4]);
+
+      leftNode.mergeWithRight(rightNode, 25);
+
+      expect(leftNode.getKeys()).toEqual([10, 15, 25, 40]);
+      expect(leftNode.getChildCount()).toBe(5);
+    });
+
+    it('should handle merge with various key counts (left=1, right=2)', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(35, children[3]);
+      rightNode.insertKeyAndChild(40, children[4]);
+
+      leftNode.mergeWithRight(rightNode, 25);
+
+      expect(leftNode.getKeys()).toEqual([10, 25, 35, 40]);
+      expect(leftNode.getChildCount()).toBe(5);
+    });
+
+    it('should result in valid node after merge (childCount = keyCount + 1)', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      // Critical invariant: childCount = keyCount + 1
+      expect(leftNode.getChildCount()).toBe(leftNode.getKeyCount() + 1);
+      expect(leftNode.getChildCount()).toBe(4);
+      expect(leftNode.getKeyCount()).toBe(3);
+    });
+
+    it('should maintain sorted order of keys after merge', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+      leftNode.insertKeyAndChild(15, children[2]);
+
+      rightNode['children'] = [children[3]];
+      rightNode.insertKeyAndChild(35, children[4]);
+      rightNode.insertKeyAndChild(45, children[5]);
+
+      leftNode.mergeWithRight(rightNode, 25);
+
+      const keys = leftNode.getKeys();
+
+      // Verify sorted order
+      for (let i = 1; i < keys.length; i++) {
+        expect(keys[i]).toBeGreaterThan(keys[i - 1]);
+      }
+
+      expect(keys).toEqual([10, 15, 25, 35, 45]);
+    });
+
+    it('should preserve correct child order after merge', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      // Give each child specific data for verification
+      children[0].insert(5, 'five');
+      children[1].insert(12, 'twelve');
+      children[2].insert(27, 'twenty-seven');
+      children[3].insert(35, 'thirty-five');
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      // Keys: [10, 20, 30]
+      // Children: [c0, c1, c2, c3]
+      // Verify children are in correct order
+      expect(leftNode.getChild(0)).toBe(children[0]);
+      expect(leftNode.getChild(1)).toBe(children[1]);
+      expect(leftNode.getChild(2)).toBe(children[2]);
+      expect(leftNode.getChild(3)).toBe(children[3]);
+    });
+
+    it('should handle merge with order 3 nodes', () => {
+      const leftNode = new InternalNode<number, string>(3);
+      const rightNode = new InternalNode<number, string>(3);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(3));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      expect(leftNode.getKeys()).toEqual([10, 20, 30]);
+      expect(leftNode.getChildCount()).toBe(4);
+      expect(leftNode.getChildCount()).toBe(leftNode.getKeyCount() + 1);
+    });
+
+    it('should append all keys and children in correct order', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(5, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(25, children[3]);
+
+      const parentKey = 15;
+
+      leftNode.mergeWithRight(rightNode, parentKey);
+
+      // Result should be: keys [5, 15, 25], children [c0, c1, c2, c3]
+      expect(leftNode.getKeys()).toEqual([5, 15, 25]);
+
+      // Verify children array is correctly combined
+      const resultChildren = leftNode.getChildren();
+      expect(resultChildren).toHaveLength(4);
+      expect(resultChildren[0]).toBe(children[0]);
+      expect(resultChildren[1]).toBe(children[1]);
+      expect(resultChildren[2]).toBe(children[2]);
+      expect(resultChildren[3]).toBe(children[3]);
+    });
+
+    it('should handle nodes at minimum capacity (floor(order/2) keys)', () => {
+      // Order 4: minimum = floor(4/2) = 2 keys
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      // Left node: 2 keys (at minimum)
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+      leftNode.insertKeyAndChild(15, children[2]);
+
+      // Right node: 1 key (below minimum, needs merge)
+      rightNode['children'] = [children[3]];
+      rightNode.insertKeyAndChild(30, children[4]);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      // Result: 4 keys [10, 15, 20, 30]
+      expect(leftNode.getKeys()).toEqual([10, 15, 20, 30]);
+      expect(leftNode.getChildCount()).toBe(5);
+    });
+
+    it('should update all parent pointers even if originally null', () => {
+      const leftNode = new InternalNode<number, string>(4);
+      const rightNode = new InternalNode<number, string>(4);
+
+      const children = Array.from({ length: 4 }, () => new LeafNode<number, string>(4));
+
+      leftNode['children'] = [children[0]];
+      leftNode.insertKeyAndChild(10, children[1]);
+
+      rightNode['children'] = [children[2]];
+      rightNode.insertKeyAndChild(30, children[3]);
+
+      // Ensure some children have null parent
+      children[2].setParent(null as any);
+      children[3].setParent(null as any);
+
+      leftNode.mergeWithRight(rightNode, 20);
+
+      // After merge, all children should point to leftNode
+      children.forEach(child => {
+        expect(child.getParent()).toBe(leftNode);
+      });
+    });
   });
 
   describe('edge cases', () => {
