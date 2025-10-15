@@ -230,8 +230,14 @@ export class LeafNode<K, V> extends Node<K, V> {
    * - Update parent pointers
    */
   mergeWithRight(rightSibling: LeafNode<K, V>): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    this.keys.push(...rightSibling['keys']);
+    this.values.push(...rightSibling['values']);
+
+    this.next = rightSibling['next'];
+
+    if ( this.next ) {
+      this.next.prev = this;
+    }
   }
 
   /**

@@ -1252,12 +1252,333 @@ describe('LeafNode', () => {
   });
 
   describe('mergeWithRight', () => {
-    it.todo('should combine all key-value pairs from both nodes');
-    it.todo('should append right sibling pairs to current node');
-    it.todo('should update next pointer to skip merged sibling');
-    it.todo('should update prev pointer of next node');
-    it.todo('should maintain sorted order after merge');
-    it.todo('should handle merge with various key counts');
+    it('should combine all key-value pairs from both nodes', () => {
+      // Left node has 2 keys
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      // Right node has 2 keys
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      // Link siblings
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      const leftKeysBefore = leaf.getKeyCount();
+      const rightKeysBefore = rightLeaf.getKeyCount();
+
+      // Merge right into left
+      leaf.mergeWithRight(rightLeaf);
+
+      // Left should now have all keys from both nodes
+      expect(leaf.getKeyCount()).toBe(leftKeysBefore + rightKeysBefore);
+      expect(leaf.getKeys()).toEqual([10, 20, 30, 40]);
+      expect(leaf.getValues()).toEqual(['ten', 'twenty', 'thirty', 'forty']);
+    });
+
+    it('should append right sibling pairs to current node', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.mergeWithRight(rightLeaf);
+
+      // Keys should be in order: left keys first, then right keys
+      const keys = leaf.getKeys();
+      expect(keys[0]).toBe(10);
+      expect(keys[1]).toBe(20);
+      expect(keys[2]).toBe(30);
+      expect(keys[3]).toBe(40);
+    });
+
+    it('should update next pointer to skip merged sibling', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+
+      // Create a third leaf beyond the right sibling
+      const furtherRight = new LeafNode<number, string>(4);
+      furtherRight.insert(50, 'fifty');
+
+      // Link: leaf -> rightLeaf -> furtherRight
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+      rightLeaf.setNext(furtherRight);
+      furtherRight.setPrev(rightLeaf);
+
+      // Merge rightLeaf into leaf
+      leaf.mergeWithRight(rightLeaf);
+
+      // leaf should now point directly to furtherRight (skip merged node)
+      expect(leaf.getNext()).toBe(furtherRight);
+    });
+
+    it('should update prev pointer of next node', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+
+      const furtherRight = new LeafNode<number, string>(4);
+      furtherRight.insert(50, 'fifty');
+
+      // Link: leaf -> rightLeaf -> furtherRight
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+      rightLeaf.setNext(furtherRight);
+      furtherRight.setPrev(rightLeaf);
+
+      // Before merge: furtherRight.prev points to rightLeaf
+      expect(furtherRight.getPrev()).toBe(rightLeaf);
+
+      // Merge rightLeaf into leaf
+      leaf.mergeWithRight(rightLeaf);
+
+      // After merge: furtherRight.prev should point to leaf
+      expect(furtherRight.getPrev()).toBe(leaf);
+    });
+
+    it('should maintain sorted order after merge', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.mergeWithRight(rightLeaf);
+
+      // All keys should be in sorted order
+      const keys = leaf.getKeys();
+      for (let i = 1; i < keys.length; i++) {
+        expect(keys[i]).toBeGreaterThan(keys[i - 1]);
+      }
+
+      expect(keys).toEqual([10, 20, 30, 40]);
+    });
+
+    it('should handle merge with various key counts', () => {
+      // Test 1: 1 key + 1 key
+      const leaf1 = new LeafNode<number, string>(4);
+      leaf1.insert(10, 'ten');
+
+      const right1 = new LeafNode<number, string>(4);
+      right1.insert(20, 'twenty');
+
+      leaf1.setNext(right1);
+      right1.setPrev(leaf1);
+
+      leaf1.mergeWithRight(right1);
+      expect(leaf1.getKeyCount()).toBe(2);
+      expect(leaf1.getKeys()).toEqual([10, 20]);
+
+      // Test 2: 2 keys + 1 key
+      const leaf2 = new LeafNode<number, string>(4);
+      leaf2.insert(10, 'ten');
+      leaf2.insert(20, 'twenty');
+
+      const right2 = new LeafNode<number, string>(4);
+      right2.insert(30, 'thirty');
+
+      leaf2.setNext(right2);
+      right2.setPrev(leaf2);
+
+      leaf2.mergeWithRight(right2);
+      expect(leaf2.getKeyCount()).toBe(3);
+      expect(leaf2.getKeys()).toEqual([10, 20, 30]);
+
+      // Test 3: 1 key + 2 keys
+      const leaf3 = new LeafNode<number, string>(4);
+      leaf3.insert(10, 'ten');
+
+      const right3 = new LeafNode<number, string>(4);
+      right3.insert(30, 'thirty');
+      right3.insert(40, 'forty');
+
+      leaf3.setNext(right3);
+      right3.setPrev(leaf3);
+
+      leaf3.mergeWithRight(right3);
+      expect(leaf3.getKeyCount()).toBe(3);
+      expect(leaf3.getKeys()).toEqual([10, 30, 40]);
+    });
+
+    it('should preserve key-value correspondence after merge', () => {
+      leaf.insert(10, 'value10');
+      leaf.insert(20, 'value20');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'value30');
+      rightLeaf.insert(40, 'value40');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.mergeWithRight(rightLeaf);
+
+      // Verify each key still maps to correct value
+      expect(leaf.search(10)).toBe('value10');
+      expect(leaf.search(20)).toBe('value20');
+      expect(leaf.search(30)).toBe('value30');
+      expect(leaf.search(40)).toBe('value40');
+    });
+
+    it('should handle merge when right sibling has no further next', () => {
+      leaf.insert(10, 'ten');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+
+      // rightLeaf is the last leaf (no next)
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+      expect(rightLeaf.getNext()).toBeNull();
+
+      leaf.mergeWithRight(rightLeaf);
+
+      // After merge, leaf should have no next (it's now the last leaf)
+      expect(leaf.getNext()).toBeNull();
+      expect(leaf.getKeys()).toEqual([10, 30]);
+    });
+
+    it('should handle merge in the middle of a chain', () => {
+      // Create chain: leaf1 -> leaf2 -> leaf3 -> leaf4
+      const leaf1 = new LeafNode<number, string>(4);
+      leaf1.insert(10, 'ten');
+
+      const leaf2 = new LeafNode<number, string>(4);
+      leaf2.insert(20, 'twenty');
+
+      const leaf3 = new LeafNode<number, string>(4);
+      leaf3.insert(30, 'thirty');
+
+      const leaf4 = new LeafNode<number, string>(4);
+      leaf4.insert(40, 'forty');
+
+      // Link them
+      leaf1.setNext(leaf2);
+      leaf2.setPrev(leaf1);
+      leaf2.setNext(leaf3);
+      leaf3.setPrev(leaf2);
+      leaf3.setNext(leaf4);
+      leaf4.setPrev(leaf3);
+
+      // Merge leaf3 into leaf2
+      leaf2.mergeWithRight(leaf3);
+
+      // New chain should be: leaf1 -> leaf2 -> leaf4
+      expect(leaf1.getNext()).toBe(leaf2);
+      expect(leaf2.getPrev()).toBe(leaf1);
+      expect(leaf2.getNext()).toBe(leaf4);
+      expect(leaf4.getPrev()).toBe(leaf2);
+
+      expect(leaf2.getKeys()).toEqual([20, 30]);
+    });
+
+    it('should work with minimum key counts (typical merge scenario)', () => {
+      // Order 4: minimum = 2
+      // Typical merge: left has 2 keys, right has 1 key (underflow)
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      // This is the typical scenario: right underflows after deletion
+      expect(leaf.getKeyCount()).toBe(2); // at minimum
+      expect(rightLeaf.getKeyCount()).toBe(1); // underflow
+
+      leaf.mergeWithRight(rightLeaf);
+
+      expect(leaf.getKeyCount()).toBe(3); // 2 + 1 = 3 ≤ order (4)
+      expect(leaf.getKeys()).toEqual([10, 20, 30]);
+    });
+
+    it('should handle merge resulting in full node', () => {
+      // Order 4: max 4 keys
+      // Merge 2 + 2 = 4 (at capacity but valid)
+      leaf.insert(10, 'ten');
+      leaf.insert(20, 'twenty');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(40, 'forty');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.mergeWithRight(rightLeaf);
+
+      expect(leaf.getKeyCount()).toBe(4); // At capacity
+      expect(leaf.getKeys()).toEqual([10, 20, 30, 40]);
+    });
+
+    it('should maintain linked list integrity with multiple merges', () => {
+      // Create chain of 5 leaves
+      const leaves = Array.from({ length: 5 }, (_, i) => {
+        const l = new LeafNode<number, string>(4);
+        l.insert((i + 1) * 10, `value${(i + 1) * 10}`);
+        return l;
+      });
+
+      // Link them
+      for (let i = 0; i < leaves.length - 1; i++) {
+        leaves[i].setNext(leaves[i + 1]);
+        leaves[i + 1].setPrev(leaves[i]);
+      }
+
+      // Merge leaves[1] with leaves[2]
+      leaves[1].mergeWithRight(leaves[2]);
+
+      // Verify chain: leaves[0] -> leaves[1] -> leaves[3] -> leaves[4]
+      expect(leaves[0].getNext()).toBe(leaves[1]);
+      expect(leaves[1].getPrev()).toBe(leaves[0]);
+      expect(leaves[1].getNext()).toBe(leaves[3]);
+      expect(leaves[3].getPrev()).toBe(leaves[1]);
+      expect(leaves[3].getNext()).toBe(leaves[4]);
+      expect(leaves[4].getPrev()).toBe(leaves[3]);
+
+      expect(leaves[1].getKeys()).toEqual([20, 30]);
+    });
+
+    it('should verify all keys remain searchable after merge', () => {
+      leaf.insert(10, 'ten');
+      leaf.insert(15, 'fifteen');
+
+      const rightLeaf = new LeafNode<number, string>(4);
+      rightLeaf.insert(30, 'thirty');
+      rightLeaf.insert(35, 'thirty-five');
+
+      leaf.setNext(rightLeaf);
+      rightLeaf.setPrev(leaf);
+
+      leaf.mergeWithRight(rightLeaf);
+
+      // All keys from both nodes should be searchable
+      expect(leaf.search(10)).toBe('ten');
+      expect(leaf.search(15)).toBe('fifteen');
+      expect(leaf.search(30)).toBe('thirty');
+      expect(leaf.search(35)).toBe('thirty-five');
+
+      // Non-existent keys should return undefined
+      expect(leaf.search(20)).toBeUndefined();
+      expect(leaf.search(40)).toBeUndefined();
+    });
   });
 
   describe('getEntries', () => {
