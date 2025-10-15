@@ -639,7 +639,145 @@ describe('InternalNode', () => {
     });
   });
 
-  describe('split', () => {
+  describe('split me test', () => {
+    // n = keys count
+    const getMockNode = (n: number) => {
+      const internal = new InternalNode<number, string>(2);
+
+      //
+
+      const zeroChild = new LeafNode<number, string>(Number.MAX_SAFE_INTEGER); //
+      zeroChild.insert(5, `number_5`);
+      zeroChild.insert(7, `number_7`);
+
+      internal['children'] = [zeroChild];
+
+      //
+
+      const newChildrenData = new Array(n).fill(0).map((_, i) => {
+        const base = (i + 1) * 10; // 10, 20, 30 ...
+
+        const child = new LeafNode<number, string>(Number.MAX_SAFE_INTEGER); //
+
+        [
+            base + 5, // 15, 25, 35, ...
+            base + 7, // 17, 27, 37, ...
+        ].forEach(key => {
+          child.insert(key, `value_${key}`);
+        });
+
+        return {
+          base,
+          child,
+        }
+      });
+
+      newChildrenData.forEach((item) => {
+        internal.insertKeyAndChild(item.base, item.child);
+      });
+
+      return {
+        internal,
+        children: [
+            zeroChild,
+            newChildrenData.map(item => item.child),
+        ]
+      }
+    };
+
+    it('should split 3 keys', () => {
+      const {
+        internal,
+        children,
+      } = getMockNode(3);
+
+      const [
+        zeroChild, // X < 10
+        firstChild, // 10 < X < 20
+        secondChild, // 20 < X < 30
+        thirdChild, // 30 < X < 40
+      ] = children;
+
+      //
+
+      const result = internal.split();
+
+      expect(internal.getKeys()).toEqual([10]); // should keep left key [10]
+      expect(internal.getChildren()).toEqual([zeroChild, firstChild]); // should keep [[5, 7], [15, 17]]
+
+      expect(result.middleKey).toBe(20); // should split on the middle key [20]
+
+      expect(result.rightNode.getKeys()).toEqual([30]); // should give right key [30]
+      expect(result.rightNode.getChildren()).toEqual([secondChild, thirdChild]); // should give [[25, 27], [35, 37]]
+    });
+
+    it('should split 4 keys', () => {
+      // [null, 10, 20, 30, 40]         length 5, 5/2 = 3, keys[3] = 30 (split index)
+      // [[5, 7], [15, 17], [25, 27], [35, 37], [45, 47]]
+      //
+      // keep keys [10, 20], keep child [[5, 7], [15, 17], [25, 27]]
+
+      const {
+        internal,
+        children,
+      } = getMockNode(4);
+
+      const [
+          zeroChild, // X < 10
+          firstChild, // 10 < X < 20
+          secondChild, // 20 < X < 30
+          thirdChild, // 30 < X < 40
+          fourthChild, // 40 < X < 50
+      ] = children;
+
+      //
+
+      const result = internal.split();
+
+      expect(internal.getKeys()).toEqual([10, 20]); // should keep [10, 20]
+      expect(internal.getChildren()).toEqual([zeroChild, firstChild, secondChild]); // should keep [[5, 7], [15, 17], [25, 27]]
+
+      expect(result.middleKey).toBe(30); // should split on the middle key [20]
+
+      expect(result.rightNode.getKeys()).toEqual([40]); // should give right key [30]
+      expect(result.rightNode.getChildren()).toEqual([thirdChild, fourthChild]); // should give [[35, 37], [45, 47]]
+    });
+
+    it('should split 5 keys', () => {
+      // [null, 10, 20, 30, 40, 50]     length 6, 6/2 = 3, keys[3] = 30 (split index)
+      // [[5, 7], [12, 15], [22, 23], [32, 34], [45, 48], [52, 54]]
+
+      // keep keys [10, 20], keep child [[5, 7], [12, 15], [22, 23]]
+
+      const {
+        internal,
+        children,
+      } = getMockNode(5);
+
+      const [
+          zeroChild, // X < 10
+          firstChild, // 10 < X < 20
+          secondChild, // 20 < X < 30
+          thirdChild, // 30 < X < 40
+          fourthChild, // 40 < X < 50
+          fifthChild, // 50 < X < 60
+      ] = children;
+
+      //
+
+      const result = internal.split();
+
+      expect(internal.getKeys()).toEqual([10, 20]); // should keep [10, 20]
+      expect(internal.getChildren()).toEqual([zeroChild, firstChild, secondChild]); // should keep [[5, 7], [15, 17], [25, 27]]
+
+      expect(result.middleKey).toBe(30); // should split on the middle key [30]
+
+      expect(result.rightNode.getKeys()).toEqual([40, 50]); // should give right key [40, 50]
+      expect(result.rightNode.getChildren()).toEqual([thirdChild, fourthChild, fifthChild]); // should give [[35, 37], [45, 47], [55, 57]]
+    });
+  });
+
+  describe('split cluade test', () => {
     it('should create new internal node', () => {
       // Setup: fill internal node with order keys (4 keys for order 4)
       const children = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));

@@ -4,6 +4,11 @@ import { Node } from './Node';
  * Internal (non-leaf) node in the B+ tree
  * Contains keys and pointers to child nodes
  * Keys act as separators between child subtrees
+ *
+ * Invariant following the rules:
+ * values[i].child > keys[i]
+ *
+ * keys[0] = NULL
  */
 export class InternalNode<K, V> extends Node<K, V> {
   /** Child node pointers (always has keys.length + 1 children) */
@@ -12,6 +17,8 @@ export class InternalNode<K, V> extends Node<K, V> {
   constructor(order: number) {
     super(order);
     this.children = [];
+
+    this.keys = [null as K];
   }
 
   /**
@@ -47,56 +54,58 @@ export class InternalNode<K, V> extends Node<K, V> {
    * The new key goes at the specified index, and the right child goes at index + 1
    */
   insertKeyAndChild(key: K, rightChild: Node<K, V>): void {
-    let i = 0;
-    for(; i < this.keys.length; i++) {
-      if ( this.keys[i] > key ) {
-        break;
-      }
+    rightChild.setParent(this);
 
-      if ( this.keys[i] == key ) {
-        break;
-      }
+    if ( this.keys.length === 1 ) {
+      this.keys.push(key);
+      this.children.push(rightChild);
+      return;
     }
 
-    // insert the mey
+    let i = 1;
+    while(key > this.keys[i]) {
+      i++;
+    }
+
     this.keys = [
       ...this.keys.slice(0, i),
       key,
       ...this.keys.slice(i),
     ];
 
-    const newChildren = [];
-
-    let j = 0
-    for(; j <= i; j++) {
-      newChildren.push(this.children[j]);
-    }
-
-    newChildren.push(rightChild);
-
-    for(; j < this.keys.length; j++) {
-      newChildren.push(this.children[j]);
-    }
-
-    this.children = newChildren;
-
-    rightChild.setParent(this);
+    this.children = [
+      ...this.children.slice(0, i),
+      rightChild,
+      ...this.children.slice(i),
+    ];
   }
 
   /**
    * Finds the child node that should contain the given key
-   * TODO: Implement search to find appropriate child
    * @returns The child node to traverse to
    */
   findChild(key: K): Node<K, V> {
-    let i = 0;
+
+    // example layout:
+    // [NULL,   10,       20,       30,       40      ]
+    // [[5, 7], [12, 15], [22, 26], [32, 39], [45, 49]]
+
+
+    // task: find 22
+    //
+    // skip 0
+    // skip 1: 10 < 22
+    // skip 2: 20 < 22
+    //      3: 30 > 22 (return children[3 - 1])
+
+    let i = 1;
     for(; i < this.keys.length; i++) {
       if ( this.keys[i] > key ) {
         break;
       }
     }
 
-    return this.children[i];
+    return this.children[i - 1];
   }
 
   /**
@@ -126,32 +135,22 @@ export class InternalNode<K, V> extends Node<K, V> {
   /**
    * Splits this internal node into two nodes
    * Used when the node overflows (too many keys)
-   * TODO: Implement split logic:
-   * - Create new internal node
-   * - Move half the keys and children to the new node
-   * - Return the middle key (to be pushed up) and the new node
    * @returns Object with the middle key and the new right node
    */
   split(): { middleKey: K; rightNode: InternalNode<K, V> } {
-    const splitKeyIndex = Math.floor(this.keys.length / 2);
-    const splitKey = this.keys[splitKeyIndex];
+    // MATH.FLOOR (ROUND UP)
+    // [null, 10, 20, 30]             length 4, 4/2 = 2, keys[2] = 20 (split index)
+    // [null, 10, 20, 30, 40]         length 5, 5/2 = 3, keys[3] = 30 (split index)
+    // [null, 10, 20, 30, 40, 50]     length 6, 6/2 = 3, keys[3] = 30 (split index)
+    // [null, 10, 20, 30, 40, 50, 60] length 7, 7/2 = 4, keys[4] = 40 (split index)
 
-    const newNode = new InternalNode<K, V>(this.order);
 
-    newNode['keys'] = this.keys.slice(splitKeyIndex + 1)
-    newNode['children'] = this.children.slice(splitKeyIndex + 1)
-    newNode['children'].forEach((child: Node<K, V>) => {
-      child.setParent(newNode);
-    })
-    newNode.setParent(this.getParent());
+    // CHILDREN.SLICE(SPLIT_INDEX)
+    // [[5, 7], [12, 15], [22, 23], [32, 34]]                     keep keys [10],     keep child [[5, 7], [12, 15]]
+    // [[5, 7], [12, 15], [22, 23], [32, 34], [45, 48]]           keep keys [10, 20], keep child [[5, 7], [12, 15], [22, 23]]
+    // [[5, 7], [12, 15], [22, 23], [32, 34], [45, 48], [52, 54]] keep keys [10, 20], keep child [[5, 7], [12, 15], [22, 23]]
 
-    this.keys = this.keys.slice(0, splitKeyIndex);
-    this.children = this.children.slice(0, splitKeyIndex + 1);
-
-    return {
-      middleKey: splitKey,
-      rightNode: newNode,
-    };
+    return null as any;
   }
 
   /**

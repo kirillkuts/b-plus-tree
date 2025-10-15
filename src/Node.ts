@@ -27,7 +27,7 @@ export abstract class Node<K, V> {
    * Returns the number of keys in this node
    */
   getKeyCount(): number {
-    return this.keys.length;
+    return this.keys.length - 1;
   }
 
   halfFull() {
@@ -42,14 +42,14 @@ export abstract class Node<K, V> {
    * Returns the key at the specified index
    */
   getKey(index: number): K {
-    return this.keys[index];
+    return this.keys[index + 1];
   }
 
   /**
    * Returns all keys in this node
    */
   getKeys(): K[] {
-    return [...this.keys];
+    return [...this.keys.slice(1)];
   }
 
   /**
