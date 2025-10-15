@@ -101,7 +101,15 @@ export class InternalNode<K, V> extends Node<K, V> {
 
   /**
    * Finds the index of a specific child node
-   * TODO: Implement child lookup
+   * Keys correspond in the following format:
+
+   * keys:  [      10,       20        ]
+   * values [[3, 5], [11, 15], [25, 27]]
+   *
+   * i = 0, k = 10, child[0].values < 10
+   * i = 1, k = 20, child[1].values < 20  && child[1].values > k[0]
+   * i = 2, k = null, child[2].values > 20  && child[1].values > k[1]
+
    * @returns The index of the child or -1 if not found
    */
   findChildIndex(child: Node<K, V>): number {

@@ -947,19 +947,642 @@ describe('InternalNode', () => {
   });
 
   describe('borrowFromLeft', () => {
-    it.todo('should borrow rightmost key from left sibling');
-    it.todo('should move rightmost child from left sibling');
-    it.todo('should update parent separator key');
-    it.todo('should update parent pointers of moved child');
-    it.todo('should maintain sorted order after borrowing');
+    it('should borrow rightmost key from left sibling via parent rotation', () => {
+      // Setup parent with two internal children
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      // Create leaf nodes for the internal nodes
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      // Left child: keys [10, 15, 20], children [c0, c1, c2, c3] - can lend
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(15, leaves[2]);
+      leftChild.insertKeyAndChild(20, leaves[3]);
+
+      // Right child: keys [40], children [c4, c5] - needs to borrow
+      rightChild['children'] = [leaves[4]];
+      rightChild.insertKeyAndChild(40, leaves[5]);
+
+      // Parent: keys [30], children [leftChild, rightChild]
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Before: Left [10, 15, 20], Parent [30], Right [40]
+      // After rotation:
+      // - Left donates rightmost key (20) and rightmost child (c3)
+      // - Parent key (30) moves down to right child
+      // - Left's rightmost key (20) becomes new parent separator
+      // Result: Left [10, 15], Parent [20], Right [30, 40]
+
+      const parentKeyIndex = 0; // Index of separator key in parent
+      rightChild.borrowFromLeft(leftChild, parentKeyIndex);
+
+      // Left should have lost its rightmost key
+      expect(leftChild.getKeys()).toEqual([10, 15]);
+      expect(leftChild.getChildCount()).toBe(3);
+
+      // Right should have gained parent key (30) at the beginning
+      expect(rightChild.getKeys()).toEqual([30, 40]);
+      expect(rightChild.getChildCount()).toBe(3);
+    });
+
+    it('should move rightmost child from left sibling to borrowing node', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      // Give each leaf specific data for tracking
+      leaves[0].insert(5, 'five');
+      leaves[1].insert(12, 'twelve');
+      leaves[2].insert(17, 'seventeen');
+      leaves[3].insert(22, 'twenty-two');
+      leaves[4].insert(35, 'thirty-five');
+      leaves[5].insert(45, 'forty-five');
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(15, leaves[2]);
+      leftChild.insertKeyAndChild(20, leaves[3]);
+
+      rightChild['children'] = [leaves[4]];
+      rightChild.insertKeyAndChild(40, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // Left's rightmost child (leaves[3]) should move to right
+      expect(leftChild.getChild(0)).toBe(leaves[0]);
+      expect(leftChild.getChild(1)).toBe(leaves[1]);
+      expect(leftChild.getChild(2)).toBe(leaves[2]);
+
+      // Right should have received left's rightmost child as its leftmost child
+      expect(rightChild.getChild(0)).toBe(leaves[3]);
+      expect(rightChild.getChild(1)).toBe(leaves[4]);
+      expect(rightChild.getChild(2)).toBe(leaves[5]);
+    });
+
+    it('should update parent separator key after borrowing', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(15, leaves[2]);
+      leftChild.insertKeyAndChild(20, leaves[3]);
+
+      rightChild['children'] = [leaves[4]];
+      rightChild.insertKeyAndChild(40, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Before: Parent key is 30
+      expect(parent.getKey(0)).toBe(30);
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // After: Parent key should be updated to left's old rightmost key (20)
+      expect(parent.getKey(0)).toBe(20);
+    });
+
+    it('should update parent pointers of moved child', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(15, leaves[2]);
+      leftChild.insertKeyAndChild(20, leaves[3]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Set parent pointers
+      leaves.forEach(leaf => leaf.setParent(leftChild as any));
+      rightChild['children'] = [leaves[4]];
+      rightChild.insertKeyAndChild(40, leaves[5]);
+      leaves[4].setParent(rightChild as any);
+      leaves[5].setParent(rightChild as any);
+
+      // Before: leaves[3] parent is leftChild
+      expect(leaves[3].getParent()).toBe(leftChild);
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // After: leaves[3] parent should be rightChild
+      expect(leaves[3].getParent()).toBe(rightChild);
+    });
+
+    it('should maintain sorted order after borrowing', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 7 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(20, leaves[2]);
+      leftChild.insertKeyAndChild(25, leaves[3]);
+
+      rightChild['children'] = [leaves[4]];
+      rightChild.insertKeyAndChild(50, leaves[5]);
+      rightChild.insertKeyAndChild(60, leaves[6]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // Keys in left should remain sorted
+      const leftKeys = leftChild.getKeys();
+      for (let i = 1; i < leftKeys.length; i++) {
+        expect(leftKeys[i]).toBeGreaterThan(leftKeys[i - 1]);
+      }
+
+      // Keys in right should be sorted
+      const rightKeys = rightChild.getKeys();
+      for (let i = 1; i < rightKeys.length; i++) {
+        expect(rightKeys[i]).toBeGreaterThan(rightKeys[i - 1]);
+      }
+
+      // All keys in left < parent separator < all keys in right
+      const parentSeparator = parent.getKey(0);
+      leftKeys.forEach(key => expect(key).toBeLessThan(parentSeparator));
+      rightKeys.forEach(key => expect(key).toBeGreaterThan(parentSeparator));
+    });
+
+    it('should maintain childCount = keyCount + 1 invariant after borrowing', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(15, leaves[2]);
+      leftChild.insertKeyAndChild(20, leaves[3]);
+
+      rightChild['children'] = [leaves[4]];
+      rightChild.insertKeyAndChild(40, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // Both nodes must maintain invariant
+      expect(leftChild.getChildCount()).toBe(leftChild.getKeyCount() + 1);
+      expect(rightChild.getChildCount()).toBe(rightChild.getKeyCount() + 1);
+    });
+
+    it('should handle borrowing when left has multiple extra keys', () => {
+      const parent = new InternalNode<number, string>(6);
+      const leftChild = new InternalNode<number, string>(6);
+      const rightChild = new InternalNode<number, string>(6);
+
+      const leaves = Array.from({ length: 8 }, () => new LeafNode<number, string>(6));
+
+      // Left has 5 keys (well above minimum)
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(5, leaves[1]);
+      leftChild.insertKeyAndChild(10, leaves[2]);
+      leftChild.insertKeyAndChild(15, leaves[3]);
+      leftChild.insertKeyAndChild(20, leaves[4]);
+      leftChild.insertKeyAndChild(25, leaves[5]);
+
+      // Right has 1 key (at minimum for order 6)
+      rightChild['children'] = [leaves[6]];
+      rightChild.insertKeyAndChild(50, leaves[7]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // Left loses rightmost key (25)
+      expect(leftChild.getKeys()).toEqual([5, 10, 15, 20]);
+
+      // Right gains parent key (30) at beginning
+      expect(rightChild.getKeys()).toEqual([30, 50]);
+
+      // Parent separator updated to 25
+      expect(parent.getKey(0)).toBe(25);
+    });
+
+    it('should correctly handle the rotation mechanism', () => {
+      // This test specifically validates the 3-way rotation:
+      // 1. Left's rightmost key goes to parent
+      // 2. Parent's separator goes to right as leftmost key
+      // 3. Left's rightmost child goes to right as leftmost child
+
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+      leftChild.insertKeyAndChild(20, leaves[2]);
+
+      rightChild['children'] = [leaves[3]];
+      rightChild.insertKeyAndChild(50, leaves[4]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Before:
+      // Left: keys [10, 20], children [c0, c1, c2]
+      // Parent: keys [30]
+      // Right: keys [50], children [c3, c4]
+
+      rightChild.borrowFromLeft(leftChild, 0);
+
+      // After rotation:
+      // Left: keys [10], children [c0, c1]
+      // Parent: keys [20] (was 30, replaced by left's 20)
+      // Right: keys [30, 50], children [c2, c3, c4] (c2 moved from left)
+
+      expect(leftChild.getKeys()).toEqual([10]);
+      expect(leftChild.getChildren()).toEqual([leaves[0], leaves[1]]);
+
+      expect(parent.getKeys()).toEqual([20]);
+
+      expect(rightChild.getKeys()).toEqual([30, 50]);
+      expect(rightChild.getChildren()).toEqual([leaves[2], leaves[3], leaves[4]]);
+    });
   });
 
   describe('borrowFromRight', () => {
-    it.todo('should borrow leftmost key from right sibling');
-    it.todo('should move leftmost child from right sibling');
-    it.todo('should update parent separator key');
-    it.todo('should update parent pointers of moved child');
-    it.todo('should maintain sorted order after borrowing');
+    it('should borrow leftmost key from right sibling via parent rotation', () => {
+      // Setup parent with two internal children
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      // Left child: keys [10], children [c0, c1] - needs to borrow
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      // Right child: keys [40, 50, 60], children [c2, c3, c4, c5] - can lend
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(40, leaves[3]);
+      rightChild.insertKeyAndChild(50, leaves[4]);
+      rightChild.insertKeyAndChild(60, leaves[5]);
+
+      // Parent: keys [30], children [leftChild, rightChild]
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Before: Left [10], Parent [30], Right [40, 50, 60]
+      // After rotation:
+      // - Right donates leftmost key (40) and leftmost child (c2)
+      // - Parent key (30) moves down to left child
+      // - Right's leftmost key (40) becomes new parent separator
+      // Result: Left [10, 30], Parent [40], Right [50, 60]
+
+      const parentKeyIndex = 0; // Index of separator key in parent
+      leftChild.borrowFromRight(rightChild, parentKeyIndex);
+
+      // Left should have gained parent key (30) at the end
+      expect(leftChild.getKeys()).toEqual([10, 30]);
+      expect(leftChild.getChildCount()).toBe(3);
+
+      // Right should have lost its leftmost key
+      expect(rightChild.getKeys()).toEqual([50, 60]);
+      expect(rightChild.getChildCount()).toBe(3);
+    });
+
+    it('should move leftmost child from right sibling to borrowing node', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      // Give each leaf specific data for tracking
+      leaves[0].insert(5, 'five');
+      leaves[1].insert(12, 'twelve');
+      leaves[2].insert(35, 'thirty-five');
+      leaves[3].insert(45, 'forty-five');
+      leaves[4].insert(55, 'fifty-five');
+      leaves[5].insert(65, 'sixty-five');
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(40, leaves[3]);
+      rightChild.insertKeyAndChild(50, leaves[4]);
+      rightChild.insertKeyAndChild(60, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // Left should have received right's leftmost child (leaves[2]) as its rightmost child
+      expect(leftChild.getChild(0)).toBe(leaves[0]);
+      expect(leftChild.getChild(1)).toBe(leaves[1]);
+      expect(leftChild.getChild(2)).toBe(leaves[2]);
+
+      // Right's leftmost child should be removed
+      expect(rightChild.getChild(0)).toBe(leaves[3]);
+      expect(rightChild.getChild(1)).toBe(leaves[4]);
+      expect(rightChild.getChild(2)).toBe(leaves[5]);
+    });
+
+    it('should update parent separator key after borrowing', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(40, leaves[3]);
+      rightChild.insertKeyAndChild(50, leaves[4]);
+      rightChild.insertKeyAndChild(60, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Before: Parent key is 30
+      expect(parent.getKey(0)).toBe(30);
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // After: Parent key should be updated to right's old leftmost key (40)
+      expect(parent.getKey(0)).toBe(40);
+    });
+
+    it('should update parent pointers of moved child', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(40, leaves[3]);
+      rightChild.insertKeyAndChild(50, leaves[4]);
+      rightChild.insertKeyAndChild(60, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Set parent pointers
+      leaves[0].setParent(leftChild as any);
+      leaves[1].setParent(leftChild as any);
+      leaves.slice(2).forEach(leaf => leaf.setParent(rightChild as any));
+
+      // Before: leaves[2] parent is rightChild
+      expect(leaves[2].getParent()).toBe(rightChild);
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // After: leaves[2] parent should be leftChild
+      expect(leaves[2].getParent()).toBe(leftChild);
+    });
+
+    it('should maintain sorted order after borrowing', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 7 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(5, leaves[1]);
+      leftChild.insertKeyAndChild(10, leaves[2]);
+
+      rightChild['children'] = [leaves[3]];
+      rightChild.insertKeyAndChild(40, leaves[4]);
+      rightChild.insertKeyAndChild(50, leaves[5]);
+      rightChild.insertKeyAndChild(60, leaves[6]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // Keys in left should be sorted
+      const leftKeys = leftChild.getKeys();
+      for (let i = 1; i < leftKeys.length; i++) {
+        expect(leftKeys[i]).toBeGreaterThan(leftKeys[i - 1]);
+      }
+
+      // Keys in right should remain sorted
+      const rightKeys = rightChild.getKeys();
+      for (let i = 1; i < rightKeys.length; i++) {
+        expect(rightKeys[i]).toBeGreaterThan(rightKeys[i - 1]);
+      }
+
+      // All keys in left < parent separator < all keys in right
+      const parentSeparator = parent.getKey(0);
+      leftKeys.forEach(key => expect(key).toBeLessThan(parentSeparator));
+      rightKeys.forEach(key => expect(key).toBeGreaterThan(parentSeparator));
+    });
+
+    it('should maintain childCount = keyCount + 1 invariant after borrowing', () => {
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 6 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(40, leaves[3]);
+      rightChild.insertKeyAndChild(50, leaves[4]);
+      rightChild.insertKeyAndChild(60, leaves[5]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // Both nodes must maintain invariant
+      expect(leftChild.getChildCount()).toBe(leftChild.getKeyCount() + 1);
+      expect(rightChild.getChildCount()).toBe(rightChild.getKeyCount() + 1);
+    });
+
+    it('should handle borrowing when right has multiple extra keys', () => {
+      const parent = new InternalNode<number, string>(6);
+      const leftChild = new InternalNode<number, string>(6);
+      const rightChild = new InternalNode<number, string>(6);
+
+      const leaves = Array.from({ length: 8 }, () => new LeafNode<number, string>(6));
+
+      // Left has 1 key (at minimum for order 6)
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      // Right has 5 keys (well above minimum)
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(35, leaves[3]);
+      rightChild.insertKeyAndChild(40, leaves[4]);
+      rightChild.insertKeyAndChild(45, leaves[5]);
+      rightChild.insertKeyAndChild(50, leaves[6]);
+      rightChild.insertKeyAndChild(55, leaves[7]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // Left gains parent key (30) at end
+      expect(leftChild.getKeys()).toEqual([10, 30]);
+
+      // Right loses leftmost key (35)
+      expect(rightChild.getKeys()).toEqual([40, 45, 50, 55]);
+
+      // Parent separator updated to 35
+      expect(parent.getKey(0)).toBe(35);
+    });
+
+    it('should correctly handle the rotation mechanism', () => {
+      // This test specifically validates the 3-way rotation:
+      // 1. Right's leftmost key goes to parent
+      // 2. Parent's separator goes to left as rightmost key
+      // 3. Right's leftmost child goes to left as rightmost child
+
+      const parent = new InternalNode<number, string>(4);
+      const leftChild = new InternalNode<number, string>(4);
+      const rightChild = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 5 }, () => new LeafNode<number, string>(4));
+
+      leftChild['children'] = [leaves[0]];
+      leftChild.insertKeyAndChild(10, leaves[1]);
+
+      rightChild['children'] = [leaves[2]];
+      rightChild.insertKeyAndChild(40, leaves[3]);
+      rightChild.insertKeyAndChild(50, leaves[4]);
+
+      parent['children'] = [leftChild];
+      parent.insertKeyAndChild(30, rightChild);
+      leftChild.setParent(parent as any);
+      rightChild.setParent(parent as any);
+
+      // Before:
+      // Left: keys [10], children [c0, c1]
+      // Parent: keys [30]
+      // Right: keys [40, 50], children [c2, c3, c4]
+
+      leftChild.borrowFromRight(rightChild, 0);
+
+      // After rotation:
+      // Left: keys [10, 30], children [c0, c1, c2] (c2 moved from right)
+      // Parent: keys [40] (was 30, replaced by right's 40)
+      // Right: keys [50], children [c3, c4]
+
+      expect(leftChild.getKeys()).toEqual([10, 30]);
+      expect(leftChild.getChildren()).toEqual([leaves[0], leaves[1], leaves[2]]);
+
+      expect(parent.getKeys()).toEqual([40]);
+
+      expect(rightChild.getKeys()).toEqual([50]);
+      expect(rightChild.getChildren()).toEqual([leaves[3], leaves[4]]);
+    });
+
+    it('should handle borrowing from right with different parent key index', () => {
+      // Test with non-zero parent key index
+      const parent = new InternalNode<number, string>(4);
+      const child1 = new InternalNode<number, string>(4);
+      const child2 = new InternalNode<number, string>(4);
+      const child3 = new InternalNode<number, string>(4);
+
+      const leaves = Array.from({ length: 9 }, () => new LeafNode<number, string>(4));
+
+      // Setup three children
+      child1['children'] = [leaves[0]];
+      child1.insertKeyAndChild(5, leaves[1]);
+      child1.insertKeyAndChild(10, leaves[2]);
+
+      child2['children'] = [leaves[3]];
+      child2.insertKeyAndChild(25, leaves[4]); // Needs to borrow
+
+      child3['children'] = [leaves[5]];
+      child3.insertKeyAndChild(45, leaves[6]);
+      child3.insertKeyAndChild(50, leaves[7]);
+      child3.insertKeyAndChild(55, leaves[8]); // Can lend
+
+      // Parent: keys [20, 40], children [child1, child2, child3]
+      parent['children'] = [child1];
+      parent.insertKeyAndChild(20, child2);
+      parent.insertKeyAndChild(40, child3);
+      child1.setParent(parent as any);
+      child2.setParent(parent as any);
+      child3.setParent(parent as any);
+
+      // child2 borrows from child3 using parent key at index 1
+      child2.borrowFromRight(child3, 1);
+
+      // child2 should gain parent key (40)
+      expect(child2.getKeys()).toEqual([25, 40]);
+
+      // child3 should lose leftmost key (45)
+      expect(child3.getKeys()).toEqual([50, 55]);
+
+      // Parent key at index 1 should be updated to 45
+      expect(parent.getKey(1)).toBe(45);
+    });
   });
 
   describe('mergeWithRight', () => {

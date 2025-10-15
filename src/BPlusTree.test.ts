@@ -382,45 +382,74 @@ describe('BPlusTree', () => {
 
     it('should handle deletion causing merge with left sibling', () => {
       // Build a tree structure where deletion causes a merge with left sibling
-      // Need leaves with minimum keys where neither can lend
-      const keys = [10, 20, 30, 40, 50, 60];
+      // Order 4: minimum = floor(4/2) = 2 keys per leaf
+      // Strategy: Create leaves with exactly 2 keys each, then delete to force merge
+
+      // Insert 5 keys to force split, then delete one to get both leaves at minimum
+      // After inserting [10, 20, 30, 40, 50]:
+      //   INTERNAL [30]
+      //     ├── LEAF [10, 20]
+      //     └── LEAF [30, 40, 50]
+      const keys = [10, 20, 30, 40, 50];
       keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Delete 50 to bring right leaf to minimum
+      tree.delete(50);
+      // Now: LEAF [10, 20] and LEAF [30, 40] - both at minimum (2 keys)
 
       const sizeBefore = tree.size();
 
-      // Delete keys to create minimal leaves, then delete to trigger merge
-      tree.delete(50);
-      const result = tree.delete(60);
+      // Delete from right leaf to cause underflow
+      // Right leaf will have [30] (1 key) after deletion - underflow!
+      // Left leaf has [10, 20] (2 keys) - at minimum, cannot lend
+      // This should trigger merge
+      const result = tree.delete(40);
       expect(result).toBe(true);
 
-      expect(tree.size()).toBe(sizeBefore - 2);
+      expect(tree.size()).toBe(sizeBefore - 1);
 
-      // Remaining keys should be searchable
-      [10, 20, 30, 40].forEach((k) => {
+      // After merge, all remaining keys should be searchable
+      [10, 20, 30].forEach((k) => {
         expect(tree.search(k)).toBe(`v${k}`);
       });
+
+      // After merge, tree should shrink to single leaf (height = 1)
+      expect(tree.getHeight()).toBe(1);
 
       expect(tree.validate()).toBe(true);
     });
 
     it('should handle deletion causing merge with right sibling', () => {
       // Build a tree structure where deletion causes a merge with right sibling
-      const keys = [10, 20, 30, 40, 50, 60];
+      // Order 4: minimum = floor(4/2) = 2 keys per leaf
+      // Strategy: Create leaves with exactly 2 keys each, then delete from LEFT leaf to force merge
+
+      // Insert 5 keys to force split, then delete one to get both leaves at minimum
+      const keys = [10, 20, 30, 40, 50];
       keys.forEach((k) => tree.insert(k, `v${k}`));
+
+      // Delete 50 to bring right leaf to minimum
+      tree.delete(50);
+      // Now: LEAF [10, 20] and LEAF [30, 40] - both at minimum (2 keys)
 
       const sizeBefore = tree.size();
 
-      // Delete keys to trigger merge
-      tree.delete(10);
+      // Delete from left leaf to cause underflow
+      // Left leaf will have [10] (1 key) after deletion - underflow!
+      // Right leaf has [30, 40] (2 keys) - at minimum, cannot lend
+      // This should trigger merge: left merges with right
       const result = tree.delete(20);
       expect(result).toBe(true);
 
-      expect(tree.size()).toBe(sizeBefore - 2);
+      expect(tree.size()).toBe(sizeBefore - 1);
 
-      // Remaining keys should be searchable
-      [30, 40, 50, 60].forEach((k) => {
+      // After merge, all remaining keys should be searchable
+      [10, 30, 40].forEach((k) => {
         expect(tree.search(k)).toBe(`v${k}`);
       });
+
+      // After merge, tree should shrink to single leaf (height = 1)
+      expect(tree.getHeight()).toBe(1);
 
       expect(tree.validate()).toBe(true);
     });

@@ -152,31 +152,39 @@ export class BPlusTree<K, V> {
     }
 
     if ( !leaf.halfFull() ) {
+      const parent = (leaf.getParent() as InternalNode<K, V>);
+      const splitIndex = parent.findChildIndex(leaf)
+
       let newSplitKey = leaf.tryBorrowFromLeft();
 
       if (newSplitKey != undefined) {
-        const parent = (leaf.getParent() as InternalNode<K, V>);
-        const splitIndex = parent.findChildIndex(leaf)
-
         parent['keys'][splitIndex - 1] = newSplitKey;
         return true;
       }
 
+      //
+      // if we are here, it means we failed to borrow left
+
       newSplitKey = leaf.tryBorrowFromRight();
 
       if (newSplitKey != undefined) {
-        const parent = (leaf.getParent() as InternalNode<K, V>);
-        const splitIndex = parent.findChildIndex(leaf)
-
         parent['keys'][splitIndex] = newSplitKey;
         return true;
       }
 
-      // const rightLeaf = leaf.getNext() as LeafNode<K, V> | undefined;
       //
-      // if ( rightLeaf && rightLeaf.getKeyCount() >= this.order ) {
-      //
-      // }
+      // if we are here, it means we failed to borrow
+
+
+      const leftLeaf = leaf.getPrev();
+
+      // if left leaf exists, merge with it
+      if ( leftLeaf !== null ) {
+        leftLeaf.mergeWithRight(leaf);
+      } else {
+        // merge with right leaf
+      }
+
     }
 
     return true;
