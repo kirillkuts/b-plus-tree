@@ -44,16 +44,12 @@ export class BPlusTree<K, V> {
     return 0;
   }
 
-  /**
-   * Inserts a key-value pair into the tree
-   * TODO: Implement insertion algorithm:
-   * 1. Find the appropriate leaf node
-   * 2. Insert the key-value pair
-   * 3. If leaf overflows, split it
-   * 4. Propagate splits up the tree if necessary
-   * 5. Create new root if root splits
-   */
+  /* Inserts a key-value pair into the tree */
   insert(key: K, value: V): void {
+
+    //
+    // Phase 1. Find leaf
+
     let node = this.root;
 
     while (!node.isLeaf()) {
@@ -68,10 +64,16 @@ export class BPlusTree<K, V> {
       return;
     }
 
+    //
+    // Phase 2. Split leaf
+
     let {
       splitKey,
       rightNode,
     } = leaf.split();
+
+    //
+    // Phase 3. Update parent
 
     let internalNode: InternalNode<K, V> | null = null;
 
@@ -80,12 +82,15 @@ export class BPlusTree<K, V> {
       internalNode['children'] = [leaf];
       leaf.setParent(internalNode as Node<K, V>);
 
-      this.root = internalNode as any;
+      this.root = internalNode as Node<K, V>;
     }
 
     internalNode = leaf.getParent() as InternalNode<K, V>;
 
     internalNode.insertKeyAndChild(splitKey, rightNode);
+
+    //
+    // Phase 4. Split parent
 
     while (internalNode.getKeyCount() >= this.order) {
       let { middleKey, rightNode } = internalNode.split();
@@ -340,7 +345,11 @@ export class BPlusTree<K, V> {
       maxKey: K | null,
     ): void => {
       // 1. Validate key count bounds
-      const keyCount = node.getKeyCount();
+      let keyCount = node.getKeyCount();
+
+      if ( !node.isLeaf() ) {
+        keyCount++;
+      }
 
       if (node === this.root) {
         // Root can have 0 keys (if it's a leaf) or 1+ keys (if internal)

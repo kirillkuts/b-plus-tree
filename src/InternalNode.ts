@@ -252,4 +252,8 @@ export class InternalNode<K, V> extends Node<K, V> {
   getKeys(): K[] {
     return [...this.keys.slice(1)];
   }
+
+  halfFull() {
+    return this.keys.length >= Math.floor(this.order / 2);
+  }
 }
