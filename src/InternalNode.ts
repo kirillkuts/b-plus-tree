@@ -198,23 +198,32 @@ export class InternalNode<K, V> extends Node<K, V> {
   /**
    * Borrows a key from the right sibling
    * Used during deletion when this node has too few keys
-   * TODO: Implement borrowing logic:
-   * - Take the leftmost key from right sibling
-   * - Update parent's separator key
-   * - Move corresponding child pointer
    */
   borrowFromRight(rightSibling: InternalNode<K, V>, parentKeyIndex: number): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    const parent = this.parent;
+
+    if ( parent === null ) {
+      throw new Error('Orphan node :(');
+    }
+
+    const keyToSteal = rightSibling.keys[1];
+    rightSibling.keys = [null as K, ...rightSibling.keys.slice(2)];
+
+    const childToSteal = rightSibling.children[0];
+    rightSibling.children = rightSibling.children.slice(1);
+
+    const parentKey = parent['keys'][parentKeyIndex];
+    parent['keys'][parentKeyIndex] = keyToSteal;
+
+    this.keys.push(parentKey);
+
+    this.children.push(childToSteal);
+    childToSteal.setParent(this);
   }
 
   /**
    * Merges this node with its right sibling
    * Used during deletion when borrowing is not possible
-   * TODO: Implement merge logic:
-   * - Pull down the separator key from parent
-   * - Combine all keys and children from both nodes
-   * - Update parent pointers
    */
   mergeWithRight(rightSibling: InternalNode<K, V>, parentKey: K): void {
     if ( rightSibling['children'].length == 0 ) {
@@ -222,7 +231,7 @@ export class InternalNode<K, V> extends Node<K, V> {
     }
 
     this.keys.push(parentKey);
-    this.keys.push(...rightSibling['keys']);
+    this.keys.push(...rightSibling['keys'].slice(1));
     this.children.push(...rightSibling['children']);
 
     this.children.forEach((child: Node<K, V>) => {

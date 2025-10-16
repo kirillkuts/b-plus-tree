@@ -1414,7 +1414,7 @@ describe('InternalNode', () => {
       // - Right's leftmost key (40) becomes new parent separator
       // Result: Left [10, 30], Parent [40], Right [50, 60]
 
-      const parentKeyIndex = 0; // Index of separator key in parent
+      const parentKeyIndex = 1; // Index of separator key in parent
       leftChild.borrowFromRight(rightChild, parentKeyIndex);
 
       // Left should have gained parent key (30) at the end
@@ -1454,7 +1454,7 @@ describe('InternalNode', () => {
       leftChild.setParent(parent as any);
       rightChild.setParent(parent as any);
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // Left should have received right's leftmost child (leaves[2]) as its rightmost child
       expect(leftChild.getChild(0)).toBe(leaves[0]);
@@ -1490,7 +1490,7 @@ describe('InternalNode', () => {
       // Before: Parent key is 30
       expect(parent.getKey(0)).toBe(30);
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // After: Parent key should be updated to right's old leftmost key (40)
       expect(parent.getKey(0)).toBe(40);
@@ -1524,7 +1524,7 @@ describe('InternalNode', () => {
       // Before: leaves[2] parent is rightChild
       expect(leaves[2].getParent()).toBe(rightChild);
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // After: leaves[2] parent should be leftChild
       expect(leaves[2].getParent()).toBe(leftChild);
@@ -1551,7 +1551,7 @@ describe('InternalNode', () => {
       leftChild.setParent(parent as any);
       rightChild.setParent(parent as any);
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // Keys in left should be sorted
       const leftKeys = leftChild.getKeys();
@@ -1591,7 +1591,7 @@ describe('InternalNode', () => {
       leftChild.setParent(parent as any);
       rightChild.setParent(parent as any);
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // Both nodes must maintain invariant
       expect(leftChild.getChildCount()).toBe(leftChild.getKeyCount() + 1);
@@ -1622,7 +1622,7 @@ describe('InternalNode', () => {
       leftChild.setParent(parent as any);
       rightChild.setParent(parent as any);
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // Left gains parent key (30) at end
       expect(leftChild.getKeys()).toEqual([10, 30]);
@@ -1663,7 +1663,7 @@ describe('InternalNode', () => {
       // Parent: keys [30]
       // Right: keys [40, 50], children [c2, c3, c4]
 
-      leftChild.borrowFromRight(rightChild, 0);
+      leftChild.borrowFromRight(rightChild, 1);
 
       // After rotation:
       // Left: keys [10, 30], children [c0, c1, c2] (c2 moved from right)
@@ -1710,7 +1710,7 @@ describe('InternalNode', () => {
       child3.setParent(parent as any);
 
       // child2 borrows from child3 using parent key at index 1
-      child2.borrowFromRight(child3, 1);
+      child2.borrowFromRight(child3, 2);
 
       // child2 should gain parent key (40)
       expect(child2.getKeys()).toEqual([25, 40]);
