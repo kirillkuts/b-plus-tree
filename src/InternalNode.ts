@@ -138,19 +138,25 @@ export class InternalNode<K, V> extends Node<K, V> {
    * @returns Object with the middle key and the new right node
    */
   split(): { middleKey: K; rightNode: InternalNode<K, V> } {
-    // MATH.FLOOR (ROUND UP)
-    // [null, 10, 20, 30]             length 4, 4/2 = 2, keys[2] = 20 (split index)
-    // [null, 10, 20, 30, 40]         length 5, 5/2 = 3, keys[3] = 30 (split index)
-    // [null, 10, 20, 30, 40, 50]     length 6, 6/2 = 3, keys[3] = 30 (split index)
-    // [null, 10, 20, 30, 40, 50, 60] length 7, 7/2 = 4, keys[4] = 40 (split index)
+    const splitIndex = Math.ceil(this.keys.length / 2);
+    const splitKey = this.keys[splitIndex];
 
+    const newNode = new InternalNode<K, V>(this.order);
 
-    // CHILDREN.SLICE(SPLIT_INDEX)
-    // [[5, 7], [12, 15], [22, 23], [32, 34]]                     keep keys [10],     keep child [[5, 7], [12, 15]]
-    // [[5, 7], [12, 15], [22, 23], [32, 34], [45, 48]]           keep keys [10, 20], keep child [[5, 7], [12, 15], [22, 23]]
-    // [[5, 7], [12, 15], [22, 23], [32, 34], [45, 48], [52, 54]] keep keys [10, 20], keep child [[5, 7], [12, 15], [22, 23]]
+    newNode['keys'].push(
+        ...this.keys.slice(splitIndex + 1)
+    );
 
-    return null as any;
+    newNode['children'] = this.children.slice(splitIndex);
+    newNode.children.forEach(child => child.setParent(newNode))
+
+    this.keys = this.keys.slice(0, splitIndex);
+    this.children = this.children.slice(0, splitIndex);
+
+    return {
+      middleKey: splitKey,
+      rightNode: newNode,
+    };
   }
 
   /**

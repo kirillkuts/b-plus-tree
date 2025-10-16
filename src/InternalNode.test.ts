@@ -680,7 +680,7 @@ describe('InternalNode', () => {
         internal,
         children: [
             zeroChild,
-            newChildrenData.map(item => item.child),
+            ...newChildrenData.map(item => item.child),
         ]
       }
     };
