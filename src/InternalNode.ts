@@ -171,14 +171,28 @@ export class InternalNode<K, V> extends Node<K, V> {
   /**
    * Borrows a key from the left sibling
    * Used during deletion when this node has too few keys
-   * TODO: Implement borrowing logic:
-   * - Take the rightmost key from left sibling
-   * - Update parent's separator key
-   * - Move corresponding child pointer
    */
   borrowFromLeft(leftSibling: InternalNode<K, V>, parentKeyIndex: number): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    const parent = this.parent;
+
+    if ( parent === null ) {
+      throw new Error('Orphan node :(');
+    }
+
+    const lastKey = leftSibling.keys.pop();
+    const lastChild = leftSibling.children.pop();
+
+    if ( lastKey === undefined || lastChild === undefined ) {
+      throw new Error('Well, I better hope it never happens..');
+    }
+
+    const parentKey = parent['keys'][parentKeyIndex];
+    parent['keys'][parentKeyIndex] = lastKey;
+
+    this.keys = [null as K, parentKey, ...this.keys.slice(1)];
+    this.children = [lastChild, ...this.children.slice(0)];
+
+    lastChild.setParent(this);
   }
 
   /**

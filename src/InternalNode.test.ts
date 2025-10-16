@@ -1117,7 +1117,7 @@ describe('InternalNode', () => {
       // - Left's rightmost key (20) becomes new parent separator
       // Result: Left [10, 15], Parent [20], Right [30, 40]
 
-      const parentKeyIndex = 0; // Index of separator key in parent
+      const parentKeyIndex = 1; // Index of separator key in parent
       rightChild.borrowFromLeft(leftChild, parentKeyIndex);
 
       // Left should have lost its rightmost key
@@ -1193,7 +1193,7 @@ describe('InternalNode', () => {
       // Before: Parent key is 30
       expect(parent.getKey(0)).toBe(30);
 
-      rightChild.borrowFromLeft(leftChild, 0);
+      rightChild.borrowFromLeft(leftChild, 1);
 
       // After: Parent key should be updated to left's old rightmost key (20)
       expect(parent.getKey(0)).toBe(20);
@@ -1253,7 +1253,7 @@ describe('InternalNode', () => {
       leftChild.setParent(parent as any);
       rightChild.setParent(parent as any);
 
-      rightChild.borrowFromLeft(leftChild, 0);
+      rightChild.borrowFromLeft(leftChild, 1);
 
       // Keys in left should remain sorted
       const leftKeys = leftChild.getKeys();
@@ -1324,7 +1324,7 @@ describe('InternalNode', () => {
       leftChild.setParent(parent as any);
       rightChild.setParent(parent as any);
 
-      rightChild.borrowFromLeft(leftChild, 0);
+      rightChild.borrowFromLeft(leftChild, 1);
 
       // Left loses rightmost key (25)
       expect(leftChild.getKeys()).toEqual([5, 10, 15, 20]);
@@ -1365,7 +1365,7 @@ describe('InternalNode', () => {
       // Parent: keys [30]
       // Right: keys [50], children [c3, c4]
 
-      rightChild.borrowFromLeft(leftChild, 0);
+      rightChild.borrowFromLeft(leftChild, 1);
 
       // After rotation:
       // Left: keys [10], children [c0, c1]
