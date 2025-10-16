@@ -161,11 +161,17 @@ export class InternalNode<K, V> extends Node<K, V> {
 
   /**
    * Removes a key and its associated child at the specified index
-   * TODO: Implement removal maintaining the children invariant
    */
   removeKeyAndChild(index: number): void {
-    // TODO: Implement
-    throw new Error('Not implemented');
+    this.keys = [
+        ...this.keys.slice(0, index),
+        ...this.keys.slice(index + 1),
+    ];
+
+    this.children = [
+        ...this.children.slice(0, index),
+        ...this.children.slice(index + 1),
+    ];
   }
 
   /**

@@ -133,12 +133,6 @@ export class BPlusTree<K, V> {
 
   /**
    * Deletes a key-value pair from the tree
-   * TODO: Implement deletion algorithm:
-   * 1. Find the leaf containing the key
-   * 2. Delete the key-value pair
-   * 3. If leaf underflows, borrow from sibling or merge
-   * 4. Propagate changes up the tree
-   * 5. Update root if necessary
    * @returns true if key was found and deleted, false otherwise
    */
   delete(key: K): boolean {
@@ -157,13 +151,18 @@ export class BPlusTree<K, V> {
     }
 
     if ( !leaf.halfFull() ) {
-      const parent = (leaf.getParent() as InternalNode<K, V>);
-      const splitIndex = parent.findChildIndex(leaf)
+      let parent = (leaf.getParent() as InternalNode<K, V>);
+
+      if ( !parent ) {
+        return true;
+      }
+
+      const leafIndex = parent.findChildIndex(leaf)
 
       let newSplitKey = leaf.tryBorrowFromLeft();
 
       if (newSplitKey != undefined) {
-        parent['keys'][splitIndex - 1] = newSplitKey;
+        parent['keys'][leafIndex] = newSplitKey;
         return true;
       }
 
@@ -173,7 +172,7 @@ export class BPlusTree<K, V> {
       newSplitKey = leaf.tryBorrowFromRight();
 
       if (newSplitKey != undefined) {
-        parent['keys'][splitIndex] = newSplitKey;
+        parent['keys'][leafIndex + 1] = newSplitKey;
         return true;
       }
 
@@ -186,10 +185,10 @@ export class BPlusTree<K, V> {
       // if left leaf exists, merge with it
       if ( leftLeaf !== null ) {
         leftLeaf.mergeWithRight(leaf);
+        parent.removeKeyAndChild(leafIndex);
       } else {
         // merge with right leaf
       }
-
     }
 
     return true;
